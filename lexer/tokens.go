@@ -11,15 +11,15 @@ type TokenData struct {
 	LineCol int
 }
 
-func (token Token) GetLineNum() int {
+func (token TokenData) GetLineNum() int {
 	return token.LineNum
 }
 
-func (token Token) GetLineCol() int {
+func (token TokenData) GetLineCol() int {
 	return token.LineCol
 }
 
-func (token Token) GetValue() string {
+func (token TokenData) GetValue() string {
 	return ""
 }
 
