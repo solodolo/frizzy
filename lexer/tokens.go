@@ -1,68 +1,120 @@
 package lexer
 
-type Token struct {
+type Token interface {
+	GetLineNum() int
+	GetLineCol() int
+	GetValue() string
+}
+
+type TokenData struct {
 	LineNum int
 	LineCol int
+}
+
+func (token Token) GetLineNum() int {
+	return token.LineNum
+}
+
+func (token Token) GetLineCol() int {
+	return token.LineCol
+}
+
+func (token Token) GetValue() string {
+	return ""
 }
 
 // Represents an operator like
 // +,-,*,%,==,!=,<, etc
 type OpToken struct {
 	Operator string
-	Token
+	TokenData
+}
+
+func (token OpToken) GetValue() string {
+	return token.Operator
 }
 
 // Represents an identifier like
-// print, get_cur_date
+// print, get_cur_date, if, else_if, end, etc...
 type IdentToken struct {
 	Identifier string
-	Token
+	TokenData
+}
+
+func (token IdentToken) GetValue() string {
+	return token.Identifier
 }
 
 // Represents a variable like
 // post.title
 type VarToken struct {
 	Variable string
-	Token
+	TokenData
+}
+
+func (token VarToken) GetValue() string {
+	return token.Variable
 }
 
 // Represents a string in double quotes like
 // "foo", "0129", "bl()#$)(!@"
 type StrToken struct {
 	Str string
-	Token
+	TokenData
+}
+
+func (token StrToken) GetValue() string {
+	return token.Str
 }
 
 // Represents an integer number
 type NumToken struct {
-	Num int
-	Token
+	Num string
+	TokenData
 }
 
-type IfToken Token
-type ElseIfToken Token
-type ElseToken Token
-
-type ForToken Token
-type InToken Token
-type EndToken Token
+func (token NumToken) GetValue() string {
+	return token.Num
+}
 
 // Represents a true/false value
 type BoolToken struct {
-	Value bool
-	Token
+	Value string
+	TokenData
+}
+
+func (token BoolToken) GetValue() string {
+	return token.Value
 }
 
 // A single grammar symbol like
 // ';', '(', ')'
-type SymbolExp struct {
-	Symbol rune
-	Token
+type SymbolToken struct {
+	Symbol string
+	TokenData
+}
+
+func (token SymbolToken) GetValue() string {
+	return token.Symbol
 }
 
 // An open or closing block marker like
 // {{, {{:, }}
-type BlockExp struct {
+type BlockToken struct {
 	Block string
-	Token
+	TokenData
+}
+
+func (token BlockToken) GetValue() string {
+	return token.Block
+}
+
+// Catchall for things that arent explicitly defined
+type PassthroughToken struct {
+	Value string
+	TokenData
+}
+
+func (token PassthroughToken) GetValue() string {
+	return token.Value
 }
