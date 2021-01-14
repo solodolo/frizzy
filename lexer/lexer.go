@@ -1,6 +1,8 @@
 package lexer
 
 import (
+	"bufio"
+	"os"
 	"regexp"
 )
 
@@ -56,3 +58,51 @@ var boolExp = regexp.MustCompile(`^true|false`)
 var symbolExp = regexp.MustCompile(`^[;()]`)
 
 var blockExp = regexp.MustCompile(`^{{:|{{|}}`)
+
+// Runs through file and creates a stream of tokens
+// from the input
+func LexFile(file *os.File, tokChan chan []Token) {
+	// Read text line by line
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+
+	// Send lines to channel
+	lineChan := make(chan string)
+	go func() {
+		for scanner.Scan() {
+			lineChan <- scanner.Text()
+		}
+	}()
+
+	// Read as lines come into the channel and
+	// convert into a slice of Tokens
+	for line := range lineChan {
+		tokChan <- getLineTokens(line)
+	}
+}
+
+// Check the front of the line for each of the tokens
+// When found, erase found token from line and repeat until
+// the line is empty
+func getLineTokens(line string) []Token {
+	tokens := make([]Token, 0)
+
+	for len(line) > 0 {
+		if loc := multOp.FindStringIndex(line); loc != nil {
+			operator, remaining := extractToken(loc, line)
+			line = remaining
+			token := OpToken{Operator: operator}
+			tokens = append(tokens, token)
+		} else if loc := addOp.FindStringIndex(line); loc != nil {
+
+		}
+	}
+	return tokens
+}
+
+// Extract the token between [loc[0],loc[1]) from the line
+// and return the remaining characters in the line
+func extractToken(loc []int, line string) (string, string) {
+	token := line[loc[0]:loc[1]]
+	return token, line[loc[1]:]
+}
