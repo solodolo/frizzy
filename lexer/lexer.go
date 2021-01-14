@@ -42,7 +42,7 @@ var assignOp = regexp.MustCompile(`^=`)
 var unaryOp = regexp.MustCompile(`^!|-`)
 
 var identExp = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-var varExp = regexp.MustCompile(`^([a-zA-Z]+[a-zA-Z0-9_]*)(\.[a-zA-Z][a-zA-Z0-9_]*)*`)
+var varExp = regexp.MustCompile(`^([a-zA-Z]+[a-zA-Z0-9_]*)\.[a-zA-Z][a-zA-Z0-9_]*`)
 var strExp = regexp.MustCompile(`^"[^"]*"`)
 var numExp = regexp.MustCompile(`^[0-9]+`)
 
