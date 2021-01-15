@@ -62,7 +62,7 @@ var symbolExp = regexp.MustCompile(`^[;(),]`)
 
 var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
 
-var spaceExp = regexp.MustCompile(`^ +`)
+var whitespaceExp = regexp.MustCompile(`^\s+`)
 
 // Runs through file and creates a stream of tokens
 // from the input
@@ -193,13 +193,15 @@ func isBlockStillOpen(start, end int, openBlock bool) bool {
 
 // Check the front of the line for each of the tokens
 // When found, erase found token from line and repeat until
-// the line is empty
+// the line is empty.
+// Assumes the text in line is within a block.
 func getLineTokens(line string) []Token {
 	tokens := make([]Token, 0)
 
 	// Check each regex against the line
 	for len(line) > 0 {
-		line = spaceExp.ReplaceAllString(line, "") // Ignore leading spaces
+		// Ignore whitespace
+		line = whitespaceExp.ReplaceAllString(line, "")
 		if loc := multOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			line = remaining
