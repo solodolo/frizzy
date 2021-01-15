@@ -58,7 +58,7 @@ var numExp = regexp.MustCompile(`^[0-9]+`)
 
 var boolExp = regexp.MustCompile(`^(true|false)`)
 
-var symbolExp = regexp.MustCompile(`^[;()]`)
+var symbolExp = regexp.MustCompile(`^[;(),]`)
 
 var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
 
