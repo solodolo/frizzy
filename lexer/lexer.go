@@ -2,8 +2,8 @@ package lexer
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -66,31 +66,48 @@ var whitespaceExp = regexp.MustCompile(`^\s+`)
 
 // Runs through file and creates a stream of tokens
 // from the input
-func LexFile(scanner *bufio.Scanner, tokChan chan []Token) {
+func Lex(scanner *bufio.Scanner, tokChan chan<- []Token, errChan chan<- error) {
+	defer close(errChan)
 	// Read line by line
 	scanner.Split(bufio.ScanLines)
-
-	// Send lines to channel
 	lineChan := make(chan string)
-	go func() {
-		defer close(lineChan)
-		for scanner.Scan() {
-			lineChan <- scanner.Text()
-		}
+	lineErrChan := make(chan error, 1)
 
-		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading lines for lexing: %s\n", err.Error())
-			os.Exit(1)
-		}
-	}()
+	go getLines(scanner, lineChan, lineErrChan)
+	go tokenizeLines(lineChan, tokChan)
 
-	// Read as lines come into the channel and
-	// convert into a slice of Tokens
+	err := <-lineErrChan
+	errChan <- err
+}
+
+// Reads lines from lineChan and converts each one into a slice of tokens.
+// These slices are sent to tokChan
+func tokenizeLines(lineChan <-chan string, tokChan chan<- []Token) {
+	defer close(tokChan)
 	openBlock := false
+
 	for line := range lineChan {
 		tokens, stillOpen := processLine(line, openBlock)
 		openBlock = stillOpen
 		tokChan <- tokens
+	}
+}
+
+// Reads lines from scanner and sends them to the string channel.
+// Any errors will be sent to error channel or nil once everything
+// has been read.
+func getLines(scanner *bufio.Scanner, lineChan chan<- string, errChan chan<- error) {
+	defer close(lineChan)
+	defer close(errChan)
+
+	for scanner.Scan() {
+		lineChan <- scanner.Text()
+	}
+
+	if err := scanner.Err(); err != nil {
+		errChan <- errors.New(fmt.Sprintf("Error reading lines for lexing: %s\n", err.Error()))
+	} else {
+		errChan <- nil
 	}
 }
 
