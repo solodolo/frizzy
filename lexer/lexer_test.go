@@ -41,7 +41,7 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tokens := getLineTokens(test.symbol)
+		tokens := getLineTokens(test.symbol, 1)
 		// Get type of each token and trim off package name
 		tokType := strings.TrimPrefix(fmt.Sprintf("%T", tokens[0]), "lexer.")
 
@@ -64,7 +64,7 @@ func TestGetLineTokensReturnsCorrectTokensForLine(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tokens := getLineTokens(test.line)
+		tokens := getLineTokens(test.line, 1)
 		equal, tokenTypes := tokenTypesAreEqual(tokens, test.tokenTypes)
 		if !equal {
 			t.Errorf("Expected %q to return %v. Got %v.", test.line, test.tokenTypes, tokenTypes)
@@ -115,7 +115,7 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tokens, _ := processLine(test.line, false) // Not in open block
+		tokens, _ := processLine(InputLine{line: test.line}, false) // Not in open block
 		equal, tokenTypes := tokenTypesAreEqual(tokens, test.tokenTypes)
 
 		if !equal {
@@ -130,7 +130,7 @@ func TestLexHandlesReadFailure(t *testing.T) {
 	pipeReader.Close()
 
 	tokChan := make(chan []Token)
-	errChan := make(chan error, 1)
+	errChan := make(chan error)
 
 	go Lex(scanner, tokChan, errChan)
 	expected := "Error reading lines for lexing: io: read/write on closed pipe\n"
@@ -172,6 +172,19 @@ func TestLexReturnsCorrectTokens(t *testing.T) {
 				{"BlockToken", "StrToken", "BlockToken"},
 			},
 		},
+		{
+			"{{: post.title}}\n{{: post.title}}\n{{: post.title}}", [][]string{
+				{"BlockToken", "VarToken", "BlockToken"},
+				{"BlockToken", "VarToken", "BlockToken"},
+				{"BlockToken", "VarToken", "BlockToken"},
+			},
+		},
+		{
+			"{{print(a)\n}}blah", [][]string{
+				{"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken"},
+				{"BlockToken", "PassthroughToken"},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -199,6 +212,41 @@ func TestLexReturnsCorrectTokens(t *testing.T) {
 			equal, tokTypes := tokenTypesAreEqual(toks, test.expected[i])
 			if !equal {
 				t.Errorf("Expected %q to return %v. Got %v.", test.lines, test.expected[i], tokTypes)
+			}
+		}
+	}
+}
+
+func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
+	tests := []struct {
+		lines    string
+		lineNums int
+	}{
+		{"first {{a}}\nsecond", 2},
+		{"foo bar", 1},
+		{"{{\nfor a in b", 2},
+		{`{{: "Foo"}}`, 1},
+		{"{{: post.title}}\n{{: post.title}}\n{{: post.title}}", 3},
+		{"{{print(a)\n}}blah", 2},
+		{"a\nb\nc\n\n\nf", 6},
+	}
+
+	for _, test := range tests {
+		scanner := bufio.NewScanner(strings.NewReader(test.lines))
+		tokChan := make(chan []Token)
+		errChan := make(chan error)
+		go Lex(scanner, tokChan, errChan)
+
+		got := [][]Token{}
+		for tokens := range tokChan {
+			got = append(got, tokens)
+		}
+
+		for i := 1; i <= test.lineNums; i++ {
+			for _, token := range got[i-1] {
+				if token.GetLineNum() != i {
+					t.Errorf("Expected token to have line number %d. Got %d.", i, token.GetLineNum())
+				}
 			}
 		}
 	}

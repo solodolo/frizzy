@@ -64,14 +64,19 @@ var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
 
 var whitespaceExp = regexp.MustCompile(`^\s+`)
 
+type InputLine struct {
+	line    string
+	lineNum int
+}
+
 // Runs through file and creates a stream of tokens
 // from the input
 func Lex(scanner *bufio.Scanner, tokChan chan<- []Token, errChan chan<- error) {
 	defer close(errChan)
 	// Read line by line
 	scanner.Split(bufio.ScanLines)
-	lineChan := make(chan string)
-	lineErrChan := make(chan error, 1)
+	lineChan := make(chan InputLine)
+	lineErrChan := make(chan error)
 
 	go getLines(scanner, lineChan, lineErrChan)
 	go tokenizeLines(lineChan, tokChan)
@@ -82,7 +87,7 @@ func Lex(scanner *bufio.Scanner, tokChan chan<- []Token, errChan chan<- error) {
 
 // Reads lines from lineChan and converts each one into a slice of tokens.
 // These slices are sent to tokChan
-func tokenizeLines(lineChan <-chan string, tokChan chan<- []Token) {
+func tokenizeLines(lineChan <-chan InputLine, tokChan chan<- []Token) {
 	defer close(tokChan)
 	openBlock := false
 
@@ -96,12 +101,18 @@ func tokenizeLines(lineChan <-chan string, tokChan chan<- []Token) {
 // Reads lines from scanner and sends them to the string channel.
 // Any errors will be sent to error channel or nil once everything
 // has been read.
-func getLines(scanner *bufio.Scanner, lineChan chan<- string, errChan chan<- error) {
+func getLines(scanner *bufio.Scanner, lineChan chan<- InputLine, errChan chan<- error) {
 	defer close(lineChan)
 	defer close(errChan)
 
+	lineNum := 1
 	for scanner.Scan() {
-		lineChan <- scanner.Text()
+		lineChan <- InputLine{
+			line:    scanner.Text(),
+			lineNum: lineNum,
+		}
+
+		lineNum += 1
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -114,26 +125,28 @@ func getLines(scanner *bufio.Scanner, lineChan chan<- string, errChan chan<- err
 // All text that comes before a {{: or {{ is passed through
 // and all text that comes after the corresponding }} is
 // also passed through
-func processLine(line string, openBlock bool) ([]Token, bool) {
+func processLine(line InputLine, openBlock bool) ([]Token, bool) {
 	// Check for indices of open and close blocks
-	start, end := getBlockIndices(line)
+	start, end := getBlockIndices(line.line)
 	// Get text that should be passed through vs fully tokenized
-	preBlock, inBlock, postBlock := partitionLine(line, start, end, openBlock)
+	preBlock, inBlock, postBlock := partitionLine(line.line, start, end, openBlock)
 
 	lineTokens := []Token{}
 
 	// If there is text before block, pass it through
 	if len(preBlock) > 0 {
-		token := PassthroughToken{Value: preBlock}
+		tokData := TokenData{LineNum: line.lineNum, LineCol: 0}
+		token := PassthroughToken{Value: preBlock, TokenData: tokData}
 		lineTokens = append(lineTokens, token)
 	}
 
 	// Tokenize the text in the blocks including any open/close blocks
-	lineTokens = append(lineTokens, getLineTokens(inBlock)...)
+	lineTokens = append(lineTokens, getLineTokens(inBlock, line.lineNum)...)
 
 	// If there is text after block, pass it through
 	if len(postBlock) > 0 {
-		token := PassthroughToken{Value: postBlock}
+		tokData := TokenData{LineNum: line.lineNum, LineCol: len(preBlock) + len(inBlock)}
+		token := PassthroughToken{Value: postBlock, TokenData: tokData}
 		lineTokens = append(lineTokens, token)
 	}
 
@@ -212,87 +225,96 @@ func isBlockStillOpen(start, end int, openBlock bool) bool {
 // When found, erase found token from line and repeat until
 // the line is empty.
 // Assumes the text in line is within a block.
-func getLineTokens(line string) []Token {
+func getLineTokens(line string, lineNum int) []Token {
 	tokens := make([]Token, 0)
 
+	col := 1
 	// Check each regex against the line
 	for len(line) > 0 {
 		// Ignore whitespace
-		line = whitespaceExp.ReplaceAllString(line, "")
+		woWhitespace := whitespaceExp.ReplaceAllString(line, "")
+		col += len(line) - len(woWhitespace)
+		line = woWhitespace
+
+		tokData := TokenData{LineNum: lineNum, LineCol: col}
+		newLine := ""
 		if loc := multOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := addOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := relOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := logicOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := assignOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := unaryOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
-			line = remaining
-			token := OpToken{Operator: operator}
+			newLine = remaining
+			token := OpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := strExp.FindStringIndex(line); loc != nil {
 			str, remaining := extractToken(loc, line)
-			line = remaining
-			token := StrToken{Str: str}
+			newLine = remaining
+			token := StrToken{Str: str, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := numExp.FindStringIndex(line); loc != nil {
 			num, remaining := extractToken(loc, line)
-			line = remaining
-			token := NumToken{Num: num}
+			newLine = remaining
+			token := NumToken{Num: num, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := boolExp.FindStringIndex(line); loc != nil {
 			boolVal, remaining := extractToken(loc, line)
-			line = remaining
-			token := BoolToken{Value: boolVal}
+			newLine = remaining
+			token := BoolToken{Value: boolVal, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := varExp.FindStringIndex(line); loc != nil {
 			variable, remaining := extractToken(loc, line)
-			line = remaining
-			token := VarToken{Variable: variable}
+			newLine = remaining
+			token := VarToken{Variable: variable, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := identExp.FindStringIndex(line); loc != nil {
 			// Ident should come after more specific tokens like bool and var
 			ident, remaining := extractToken(loc, line)
-			line = remaining
-			token := IdentToken{Identifier: ident}
+			newLine = remaining
+			token := IdentToken{Identifier: ident, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := symbolExp.FindStringIndex(line); loc != nil {
 			symbol, remaining := extractToken(loc, line)
-			line = remaining
-			token := SymbolToken{Symbol: symbol}
+			newLine = remaining
+			token := SymbolToken{Symbol: symbol, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := blockExp.FindStringIndex(line); loc != nil {
 			block, remaining := extractToken(loc, line)
-			line = remaining
-			token := BlockToken{Block: block}
+			newLine = remaining
+			token := BlockToken{Block: block, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if len(line) > 0 {
 			// No match so just pass through the char at the front
 			// of the line
 			val, remaining := extractToken([]int{0, 1}, line)
-			line = remaining
-			token := PassthroughToken{Value: val}
+			newLine = remaining
+			token := PassthroughToken{Value: val, TokenData: tokData}
 			tokens = append(tokens, token)
 		}
+
+		col += len(line) - len(newLine)
+		line = newLine
 	}
 	return tokens
 }
