@@ -241,32 +241,32 @@ func getLineTokens(line string, lineNum int) []Token {
 		if loc := multOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := MultOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := addOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := AddOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := relOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := RelOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := logicOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := LogicOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := assignOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := AssignOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := unaryOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := OpToken{Operator: operator, TokenData: tokData}
+			token := UnaryOpToken{Operator: operator, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := strExp.FindStringIndex(line); loc != nil {
 			str, remaining := extractToken(loc, line)

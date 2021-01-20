@@ -24,13 +24,68 @@ func (token TokenData) GetValue() string {
 }
 
 // Represents an operator like
-// +,-,*,%,==,!=,<, etc
-type OpToken struct {
+// =
+type AssignOpToken struct {
 	Operator string
 	TokenData
 }
 
-func (token OpToken) GetValue() string {
+func (token AssignOpToken) GetValue() string {
+	return token.Operator
+}
+
+// Represents an operator like
+// !
+type UnaryOpToken struct {
+	Operator string
+	TokenData
+}
+
+func (token UnaryOpToken) GetValue() string {
+	return token.Operator
+}
+
+// Represents an operator like
+// ||, &&
+type LogicOpToken struct {
+	Operator string
+	TokenData
+}
+
+func (token LogicOpToken) GetValue() string {
+	return token.Operator
+}
+
+// Represents an operator like
+// <, >, <= etc
+type RelOpToken struct {
+	Operator string
+	TokenData
+}
+
+func (token RelOpToken) GetValue() string {
+	return token.Operator
+}
+
+// Represents operators like
+// +, -
+type AddOpToken struct {
+	Operator string
+	TokenData
+}
+
+func (token AddOpToken) GetValue() string {
+	return token.Operator
+}
+
+// Represents operators like
+// *, /, %
+type MultOpToken struct {
+	Operator string
+	TokenData
+}
+
+func (token MultOpToken) GetValue() string {
 	return token.Operator
 }
 
