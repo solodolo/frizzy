@@ -239,3 +239,7 @@ func init() {
 		"T":        43,
 	}
 }
+
+func IsShiftAction(action string) bool {
+	return action[0] == 's'
+}
