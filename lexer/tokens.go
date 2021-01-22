@@ -264,7 +264,7 @@ func (token BoolToken) GetValue() string {
 }
 
 func (token BoolToken) GetGrammarSymbol() string {
-	return token.GetValue()
+	return "BOOL"
 }
 
 // A single grammar symbol like
