@@ -30,7 +30,11 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 		{"&&", "LogicOpToken"},
 		{"123", "NumToken"},
 		{`"foobar"`, "StrToken"},
-		{"for", "IdentToken"},
+		{"for", "ForToken"},
+		{"if", "IfToken"},
+		{"else_if", "ElseIfToken"},
+		{"else", "ElseToken"},
+		{"end", "EndToken"},
 		{"post.title", "VarToken"},
 		{"true", "BoolToken"},
 		{"false", "BoolToken"},
@@ -112,6 +116,8 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 		{"{{a\nb}}", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken"}},
 		{"a{{a\nb}}", []string{"PassthroughToken", "BlockToken", "IdentToken", "IdentToken", "BlockToken"}},
 		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "PassthroughToken"}},
+		{"{{if(true)}}", []string{"BlockToken", "IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken"}},
+		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "EndToken", "BlockToken"}},
 	}
 
 	for _, test := range tests {
@@ -133,7 +139,7 @@ func TestLexHandlesReadFailure(t *testing.T) {
 	errChan := make(chan error)
 
 	go Lex(scanner, tokChan, errChan)
-	expected := "Error reading lines for lexing: io: read/write on closed pipe\n"
+	expected := "error reading lines for lexing: io: read/write on closed pipe"
 
 	for tokens := range tokChan {
 		t.Errorf("Expecting error. Got tokens %v.", tokens)
@@ -164,7 +170,7 @@ func TestLexReturnsCorrectTokens(t *testing.T) {
 		{
 			"{{\nfor a in b", [][]string{
 				{"BlockToken"},
-				{"IdentToken", "IdentToken", "IdentToken", "IdentToken"},
+				{"ForToken", "IdentToken", "InToken", "IdentToken"},
 			},
 		},
 		{

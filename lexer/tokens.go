@@ -4,6 +4,7 @@ type Token interface {
 	GetLineNum() int
 	GetLineCol() int
 	GetValue() string
+	GetGrammarSymbol() string
 }
 
 type TokenData struct {
@@ -19,7 +20,15 @@ func (token TokenData) GetLineCol() int {
 	return token.LineCol
 }
 
+// The actual value the token represents
+// 5, "foo", post.title, *, etc
 func (token TokenData) GetValue() string {
+	return ""
+}
+
+// The symbol as it appears in the parse table
+// =, +, MULT_OP, ID, NUM, etc
+func (token TokenData) GetGrammarSymbol() string {
 	return ""
 }
 
@@ -34,6 +43,10 @@ func (token AssignOpToken) GetValue() string {
 	return token.Operator
 }
 
+func (token AssignOpToken) GetGrammarSymbol() string {
+	return "="
+}
+
 // Represents an operator like
 // !
 type UnaryOpToken struct {
@@ -43,6 +56,10 @@ type UnaryOpToken struct {
 
 func (token UnaryOpToken) GetValue() string {
 	return token.Operator
+}
+
+func (token UnaryOpToken) GetGrammarSymbol() string {
+	return "UNARY_OP"
 }
 
 // Represents an operator like
@@ -56,6 +73,10 @@ func (token LogicOpToken) GetValue() string {
 	return token.Operator
 }
 
+func (token LogicOpToken) GetGrammarSymbol() string {
+	return "LOGIC_OP"
+}
+
 // Represents an operator like
 // <, >, <= etc
 type RelOpToken struct {
@@ -65,6 +86,10 @@ type RelOpToken struct {
 
 func (token RelOpToken) GetValue() string {
 	return token.Operator
+}
+
+func (token RelOpToken) GetGrammarSymbol() string {
+	return "REL_OP"
 }
 
 // Represents operators like
@@ -78,6 +103,10 @@ func (token AddOpToken) GetValue() string {
 	return token.Operator
 }
 
+func (token AddOpToken) GetGrammarSymbol() string {
+	return "ADD_OP"
+}
+
 // Represents operators like
 // *, /, %
 type MultOpToken struct {
@@ -87,6 +116,10 @@ type MultOpToken struct {
 
 func (token MultOpToken) GetValue() string {
 	return token.Operator
+}
+
+func (token MultOpToken) GetGrammarSymbol() string {
+	return "MULT_OP"
 }
 
 // Represents an identifier like
@@ -100,6 +133,82 @@ func (token IdentToken) GetValue() string {
 	return token.Identifier
 }
 
+func (token IdentToken) GetGrammarSymbol() string {
+	return "ID"
+}
+
+type ForToken struct {
+	TokenData
+}
+
+func (token ForToken) GetValue() string {
+	return "for"
+}
+
+func (token ForToken) GetGrammarSymbol() string {
+	return "FOR"
+}
+
+type InToken struct {
+	TokenData
+}
+
+func (token InToken) GetValue() string {
+	return "in"
+}
+
+func (token InToken) GetGrammarSymbol() string {
+	return "IN"
+}
+
+type IfToken struct {
+	TokenData
+}
+
+func (token IfToken) GetValue() string {
+	return "if"
+}
+
+func (token IfToken) GetGrammarSymbol() string {
+	return "IF"
+}
+
+type ElseIfToken struct {
+	TokenData
+}
+
+func (token ElseIfToken) GetValue() string {
+	return "else_if"
+}
+
+func (token ElseIfToken) GetGrammarSymbol() string {
+	return "ELSE_IF"
+}
+
+type ElseToken struct {
+	TokenData
+}
+
+func (token ElseToken) GetValue() string {
+	return "else"
+}
+
+func (token ElseToken) GetGrammarSymbol() string {
+	return "ELSE"
+}
+
+type EndToken struct {
+	TokenData
+}
+
+func (token EndToken) GetValue() string {
+	return "end"
+}
+
+func (token EndToken) GetGrammarSymbol() string {
+	return "END"
+}
+
 // Represents a variable like
 // post.title
 type VarToken struct {
@@ -109,6 +218,10 @@ type VarToken struct {
 
 func (token VarToken) GetValue() string {
 	return token.Variable
+}
+
+func (token VarToken) GetGrammarSymbol() string {
+	return "VAR_NAME"
 }
 
 // Represents a string in double quotes like
@@ -122,6 +235,10 @@ func (token StrToken) GetValue() string {
 	return token.Str
 }
 
+func (token StrToken) GetGrammarSymbol() string {
+	return "STRING"
+}
+
 // Represents an integer number
 type NumToken struct {
 	Num string
@@ -132,6 +249,10 @@ func (token NumToken) GetValue() string {
 	return token.Num
 }
 
+func (token NumToken) GetGrammarSymbol() string {
+	return "NUM"
+}
+
 // Represents a true/false value
 type BoolToken struct {
 	Value string
@@ -140,6 +261,10 @@ type BoolToken struct {
 
 func (token BoolToken) GetValue() string {
 	return token.Value
+}
+
+func (token BoolToken) GetGrammarSymbol() string {
+	return token.GetValue()
 }
 
 // A single grammar symbol like
@@ -153,6 +278,10 @@ func (token SymbolToken) GetValue() string {
 	return token.Symbol
 }
 
+func (token SymbolToken) GetGrammarSymbol() string {
+	return token.GetValue()
+}
+
 // An open or closing block marker like
 // {{, {{:, }}
 type BlockToken struct {
@@ -164,6 +293,10 @@ func (token BlockToken) GetValue() string {
 	return token.Block
 }
 
+func (token BlockToken) GetGrammarSymbol() string {
+	return token.GetValue()
+}
+
 // Catchall for things that arent explicitly defined
 type PassthroughToken struct {
 	Value string
@@ -172,4 +305,8 @@ type PassthroughToken struct {
 
 func (token PassthroughToken) GetValue() string {
 	return token.Value
+}
+
+func (token PassthroughToken) GetGrammarSymbol() string {
+	return ""
 }

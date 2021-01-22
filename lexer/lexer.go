@@ -2,7 +2,6 @@ package lexer
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -47,14 +46,13 @@ var varExp = regexp.MustCompile(`^([a-zA-Z]+[a-zA-Z0-9_]*)\.[a-zA-Z][a-zA-Z0-9_]
 var strExp = regexp.MustCompile(`^"[^"]*"`)
 var numExp = regexp.MustCompile(`^[0-9]+`)
 
-// These can be captured by identExp
-// var ifExp = regexp.MustCompile(`^if`)
-// var elseIfExp = regexp.MustCompile(`^else_if`)
-// var elseExp = regexp.MustCompile(`^else`)
+var ifExp = regexp.MustCompile(`^if`)
+var elseIfExp = regexp.MustCompile(`^else_if`)
+var elseExp = regexp.MustCompile(`^else`)
 
-// var forExp = regexp.MustCompile(`^for`)
-// var inExp = regexp.MustCompile(`^in`)
-// var endExp = regexp.MustCompile(`^end`)
+var forExp = regexp.MustCompile(`^for`)
+var inExp = regexp.MustCompile(`^in`)
+var endExp = regexp.MustCompile(`^end`)
 
 var boolExp = regexp.MustCompile(`^(true|false)`)
 
@@ -112,11 +110,11 @@ func getLines(scanner *bufio.Scanner, lineChan chan<- InputLine, errChan chan<- 
 			lineNum: lineNum,
 		}
 
-		lineNum += 1
+		lineNum++
 	}
 
 	if err := scanner.Err(); err != nil {
-		errChan <- errors.New(fmt.Sprintf("Error reading lines for lexing: %s\n", err.Error()))
+		errChan <- fmt.Errorf("error reading lines for lexing: %s", err.Error())
 	} else {
 		errChan <- nil
 	}
@@ -282,6 +280,36 @@ func getLineTokens(line string, lineNum int) []Token {
 			boolVal, remaining := extractToken(loc, line)
 			newLine = remaining
 			token := BoolToken{Value: boolVal, TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := ifExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := IfToken{TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := elseIfExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := ElseIfToken{TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := elseExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := ElseToken{TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := forExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := ForToken{TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := inExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := InToken{TokenData: tokData}
+			tokens = append(tokens, token)
+		} else if loc := endExp.FindStringIndex(line); loc != nil {
+			_, remaining := extractToken(loc, line)
+			newLine = remaining
+			token := EndToken{TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := varExp.FindStringIndex(line); loc != nil {
 			variable, remaining := extractToken(loc, line)
