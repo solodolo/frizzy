@@ -1,5 +1,9 @@
 package parser
 
+import (
+	"strings"
+)
+
 var (
 	// GrammarProductions is a list of the grammar productions
 	GrammarProductions []string
@@ -242,4 +246,22 @@ func init() {
 
 func IsShiftAction(action string) bool {
 	return action[0] == 's'
+}
+
+func IsReduceAction(action string) bool {
+	return action[0] == 'r'
+}
+
+// GetProductionParts returns the left and right pieces
+// of grammar rule n.
+// If rule n is S -> n b C, left = ["S"] and right = ["n", "b", "C"]
+func GetProductionParts(n int) (left string, right []string) {
+	rule := GrammarProductions[n]
+
+	pieces := strings.Split(rule, " -> ")
+
+	left = pieces[0]
+	right = strings.Split(pieces[1], " ")
+
+	return
 }
