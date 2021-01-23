@@ -28,14 +28,14 @@ package parser
 
 // statement_list -> statement_list statement; | ε
 type TreeNode interface {
-	GetChildren() []*ParseNode
+	GetChildren() []TreeNode
 }
 
 type ParseNode struct {
-	children []*ParseNode
+	children []TreeNode
 }
 
-func (node *ParseNode) GetChildren() []*ParseNode {
+func (node *ParseNode) GetChildren() []TreeNode {
 	return node.children
 }
 
