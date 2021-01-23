@@ -83,6 +83,7 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 			// Number of symbols to pop
 			numToPop := len(right)
 			*stateStack = (*stateStack)[:len(*stateStack)-numToPop]
+			poppedNodes := (*nodeStack)[len(*nodeStack)-numToPop:]
 			*nodeStack = (*nodeStack)[:len(*nodeStack)-numToPop]
 
 			// Get the row and column to lookup in goto table
@@ -105,6 +106,7 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 
 			// Push nonterminal onto stack
 			node := &StringParseNode{Value: left}
+			node.children = poppedNodes
 			*nodeStack = append(*nodeStack, node)
 		}
 	}
