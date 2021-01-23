@@ -27,7 +27,7 @@ package parser
 // statement -> func_call
 
 // statement_list -> statement_list statement; | ε
-type ParentNode interface {
+type TreeNode interface {
 	GetChildren() []*ParseNode
 }
 
@@ -49,7 +49,17 @@ type NumParseNode struct {
 	ParseNode
 }
 
+type BoolParseNode struct {
+	Value bool
+	ParseNode
+}
+
+type IdentParseNode struct {
+	Value string
+	ParseNode
+}
+
 type VarParseNode struct {
-	VarName string
+	Value string
 	ParseNode
 }
