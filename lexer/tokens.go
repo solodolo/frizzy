@@ -297,6 +297,19 @@ func (token BlockToken) GetGrammarSymbol() string {
 	return token.GetValue()
 }
 
+// Represents the EOL
+type EOLToken struct {
+	TokenData
+}
+
+func (token EOLToken) GetValue() string {
+	return ""
+}
+
+func (token EOLToken) GetGrammarSymbol() string {
+	return "$"
+}
+
 // Catchall for things that arent explicitly defined
 type PassthroughToken struct {
 	Value string
