@@ -35,8 +35,13 @@ type ParseNode struct {
 	children []TreeNode
 }
 
-func (node *ParseNode) GetChildren() []TreeNode {
+func (node ParseNode) GetChildren() []TreeNode {
 	return node.children
+}
+
+type NonTerminalParseNode struct {
+	Value string
+	ParseNode
 }
 
 type StringParseNode struct {
