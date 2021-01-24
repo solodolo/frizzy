@@ -241,15 +241,26 @@ func init() {
 		"R":        41,
 		"S":        42,
 		"T":        43,
+		"U":        44,
 	}
 }
 
+// IsShiftAction determines if the given parse table action is a
+// shift action
 func IsShiftAction(action string) bool {
 	return action[0] == 's'
 }
 
+// IsReduceAction determines if the given parse table action is a
+// reduce action
 func IsReduceAction(action string) bool {
 	return action[0] == 'r'
+}
+
+// IsAcceptAction determines if the given parse table action is an
+// accept action
+func IsAcceptAction(action string) bool {
+	return action == "acct"
 }
 
 // GetProductionParts returns the left and right pieces
@@ -262,6 +273,10 @@ func GetProductionParts(n int) (left string, right []string) {
 
 	left = pieces[0]
 	right = strings.Split(pieces[1], " ")
+
+	if right[0] == "ε" {
+		right = []string{}
+	}
 
 	return
 }
