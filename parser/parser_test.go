@@ -26,11 +26,9 @@ func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 	errChan := make(chan error)
 
 	go Parse(tokChan, nodeChan, errChan)
-	go func() {
-		for node := range nodeChan {
-			nodes = append(nodes, node)
-		}
-	}()
+	for node := range nodeChan {
+		nodes = append(nodes, node)
+	}
 
 	err := <-errChan
 
@@ -142,6 +140,25 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 				},
 			},
 			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{"},
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
+				{
+					lexer.BlockToken{Block: "{{:"},
+					lexer.StrToken{Str: "bar"},
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
+			},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
 				NonTerminalParseNode{},
 			},
 		},
