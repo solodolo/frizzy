@@ -53,43 +53,43 @@ func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 
 func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 	var testing = []struct {
-		tokens []lexer.Token
+		tokens [][]lexer.Token
 		nodes  []TreeNode
 	}{
-		// {
-		// 	tokens: []lexer.Token{
-		// 		lexer.BlockToken{Block: "{{"},
-		// 		lexer.BlockToken{Block: "}}"},
-		// 		lexer.EOLToken{},
-		// 	},
-		// 	nodes: []TreeNode{
-		// 		NonTerminalParseNode{},
-		// 	},
-		// },
-		// {
-		// 	tokens: []lexer.Token{
-		// 		lexer.BlockToken{Block: "{{"},
-		// 		lexer.StrToken{Str: "foo"},
-		// 		lexer.BlockToken{Block: "}}"},
-		// 		lexer.EOLToken{},
-		// 	},
-		// 	nodes: []TreeNode{
-		// 		NonTerminalParseNode{},
-		// 	},
-		// },
-		// {
-		// 	tokens: []lexer.Token{
-		// 		lexer.BlockToken{Block: "{{"},
-		// 		lexer.NumToken{Num: "5"},
-		// 		lexer.BlockToken{Block: "}}"},
-		// 		lexer.EOLToken{},
-		// 	},
-		// 	nodes: []TreeNode{
-		// 		NonTerminalParseNode{},
-		// 	},
-		// },
 		{
-			tokens: []lexer.Token{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.StrToken{Str: "foo"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "5"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
 				lexer.IfToken{},
 				lexer.SymbolToken{Symbol: "("},
@@ -98,6 +98,48 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 				lexer.EndToken{},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "false"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.EndToken{},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{"},
+					lexer.IfToken{},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.BoolToken{Value: "false"},
+					lexer.SymbolToken{Symbol: ")"},
+				},
+				{
+					lexer.ElseIfToken{},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.BoolToken{Value: "true"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.EndToken{},
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
 			},
 			nodes: []TreeNode{
 				NonTerminalParseNode{},
@@ -108,9 +150,12 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 	for _, test := range testing {
 		tokChan := make(chan []lexer.Token)
 
-		go func(tokens []lexer.Token) {
+		go func(tokens [][]lexer.Token) {
 			defer close(tokChan)
-			tokChan <- tokens
+
+			for _, tokenLine := range tokens {
+				tokChan <- tokenLine
+			}
 		}(test.tokens)
 
 		nodes := []TreeNode{}
@@ -118,11 +163,9 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 		errChan := make(chan error)
 
 		go Parse(tokChan, nodeChan, errChan)
-		go func() {
-			for node := range nodeChan {
-				nodes = append(nodes, node)
-			}
-		}()
+		for node := range nodeChan {
+			nodes = append(nodes, node)
+		}
 
 		err := <-errChan
 
