@@ -10,17 +10,23 @@ import (
 // Parse reads tokens from tokChan and parses them into tree nodes
 // which are then fed to nodeChan
 func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan error) {
-	defer close(nodeChan)
 	defer close(errChan)
+
+	parseErrChan := make(chan error)
+	go readAndParseTokens(tokChan, nodeChan, parseErrChan)
+	errChan <- <-parseErrChan
+}
+
+// Read lines of tokens from tokChan and turn them into TreeNodes sent to nodeChan
+func readAndParseTokens(tokChan chan []lexer.Token, nodeChan chan TreeNode, parseErrChan chan error) {
+	defer close(nodeChan)
+	defer close(parseErrChan)
 
 	stateStack := &[]int{}
 	nodeStack := &[]TreeNode{}
 
 	for tokens := range tokChan {
-		// When open block is found
-		// 	start in table state 0
-		// 	parse until an accept is reached
-		// Go until open block is found
+		// Track how many tokens have been read
 		i := 0
 		for i < len(tokens) {
 			token := tokens[i]
@@ -30,10 +36,12 @@ func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan erro
 				nodeChan <- node
 				i++
 			} else {
+				// Parse the rest of the tokens with full grammar
 				j, err := parseTokens(tokens[i:], stateStack, nodeStack, nodeChan)
 
 				if err != nil {
-					errChan <- err
+					parseErrChan <- err
+					return
 				}
 
 				i += j
@@ -41,7 +49,7 @@ func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan erro
 		}
 	}
 
-	errChan <- nil
+	parseErrChan <- nil
 }
 
 func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode, nodeChan chan TreeNode) (i int, err error) {
@@ -86,9 +94,7 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 			head.children = *nodeStack
 
 			// Send head to channel
-			go func() {
-				nodeChan <- head
-			}()
+			nodeChan <- head
 
 			// Clear stacks
 			*stateStack = []int{}
