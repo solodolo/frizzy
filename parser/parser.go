@@ -64,14 +64,14 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 		col, exists := SymbolColMapping[currentSymbol]
 
 		if !exists {
-			err = fmt.Errorf("parse table column not found for symbol %q", currentSymbol)
+			err = getParseError(token, "parse table column not found for symbol %q", currentSymbol)
 			break
 		}
 
 		action := LR1ParseTable[currentState][col]
 
 		if action == "" {
-			err = fmt.Errorf("invalid action taken for state %d, symbol %q", currentState, currentSymbol)
+			err = getParseError(token, "invalid action taken for state %d, symbol %q", currentState, currentSymbol)
 			break
 		} else if IsShiftAction(action) {
 			err = handleShiftAction(action, token, stateStack, nodeStack)
@@ -83,14 +83,14 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 			// go to next token
 			i++
 		} else if IsReduceAction(action) {
-			err = handleReduceAction(action, stateStack, nodeStack)
+			err = handleReduceAction(action, token, stateStack, nodeStack)
 
 			if err != nil {
 				break
 			}
 		} else {
 			// Accept is the only remaining option
-			head := NonTerminalParseNode{Value: "A"}
+			head := NonTerminalParseNode{}
 			head.children = *nodeStack
 
 			// Send head to channel
@@ -113,7 +113,7 @@ func handleShiftAction(action string, token lexer.Token, stateStack *[]int, node
 	nextState, e := strconv.Atoi(action[1:])
 
 	if e != nil {
-		err = fmt.Errorf("could not convert %q to a valid state", action[1:])
+		err = getParseError(token, "could not convert %q to a valid state", action[1:])
 		return
 	}
 
@@ -128,11 +128,11 @@ func handleShiftAction(action string, token lexer.Token, stateStack *[]int, node
 
 // Looks up reduction rule A -> B and shifts |B| symbols off each stack.
 // Then pushes GOTO[stateStack.back(), A] onto state stack and A onto node stack
-func handleReduceAction(action string, stateStack *[]int, nodeStack *[]TreeNode) (err error) {
+func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nodeStack *[]TreeNode) (err error) {
 	ruleNum, e := strconv.Atoi(action[1:])
 
 	if e != nil {
-		err = fmt.Errorf("could not convert %q to a valid grammar rule", action[1:])
+		err = getParseError(token, "could not convert %q to a valid grammar rule", action[1:])
 		return
 	}
 
@@ -140,30 +140,36 @@ func handleReduceAction(action string, stateStack *[]int, nodeStack *[]TreeNode)
 	// Number of symbols to pop
 	numToPop := len(right)
 	*stateStack = (*stateStack)[:len(*stateStack)-numToPop]
-	poppedNodes := (*nodeStack)[len(*nodeStack)-numToPop:]
-	*nodeStack = (*nodeStack)[:len(*nodeStack)-numToPop]
 
 	// Get the row and column to lookup in goto table
 	lookupState := (*stateStack)[len(*stateStack)-1]
 	lookupCol, exists := SymbolColMapping[left]
 
 	if !exists {
-		err = fmt.Errorf("parse table column not found for symbol %q", left)
+		err = getParseError(token, "parse table column not found for symbol %q", left)
 	}
 
 	gotoState, e := strconv.Atoi(LR1ParseTable[lookupState][lookupCol])
 
 	if e != nil {
-		err = fmt.Errorf("could not convert goto state %q to valid state", gotoState)
+		err = getParseError(token, "could not convert goto state %q to valid state", gotoState)
 		return
 	}
 
 	// Push goto state on top of stack
 	*stateStack = append(*stateStack, gotoState)
 
-	// Push nonterminal onto stack
-	node := &NonTerminalParseNode{Value: left}
-	node.children = poppedNodes
+	// Create non-terminal
+	node := NonTerminalParseNode{Value: left}
+	node.children = make([]TreeNode, numToPop)
+
+	// Stack symbols that will be popped become children of new node
+	copy(node.children, (*nodeStack)[len(*nodeStack)-numToPop:])
+
+	// Actually pop symbols
+	*nodeStack = (*nodeStack)[:len(*nodeStack)-numToPop]
+
+	// Append new symbol
 	*nodeStack = append(*nodeStack, node)
 
 	return
@@ -176,20 +182,28 @@ func getNodeForToken(token lexer.Token) TreeNode {
 	switch tok := token.(type) {
 	case lexer.NumToken:
 		num, _ := strconv.Atoi(tok.Num)
-		node = &NumParseNode{Value: num}
+		node = NumParseNode{Value: num}
 	case lexer.BoolToken:
 		truthy := tok.Value == "true"
-		node = &BoolParseNode{Value: truthy}
+		node = BoolParseNode{Value: truthy}
 	case lexer.IdentToken:
 		ident := tok.Identifier
-		node = &IdentParseNode{Value: ident}
+		node = IdentParseNode{Value: ident}
 	case lexer.VarToken:
 		varName := tok.Variable
-		node = &VarParseNode{Value: varName}
+		node = VarParseNode{Value: varName}
 	default:
 		str := tok.GetValue()
-		node = &StringParseNode{Value: str}
+		node = StringParseNode{Value: str}
 	}
 
 	return node
+}
+
+// Returns an parse error formatted for the current token
+func getParseError(token lexer.Token, msg string, msgFmt ...interface{}) error {
+	lineNum, lineCol := token.GetLineNum(), token.GetLineCol()
+
+	fmtedMsg := fmt.Sprintf(msg, msgFmt...)
+	return fmt.Errorf("parse error line %d col %d: %s", lineNum, lineCol, fmtedMsg)
 }
