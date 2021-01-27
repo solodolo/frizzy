@@ -64,14 +64,14 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 		col, exists := SymbolColMapping[currentSymbol]
 
 		if !exists {
-			err = getParseError(token, "parse table column not found for symbol %q", currentSymbol)
+			err = getParseError(token, "unrecognized symbol %q", currentSymbol)
 			break
 		}
 
 		action := LR1ParseTable[currentState][col]
 
 		if action == "" {
-			err = getParseError(token, "invalid action taken for state %d, symbol %q", currentState, currentSymbol)
+			err = getParseError(token, "unexpected symbol %q", currentSymbol)
 			break
 		} else if IsShiftAction(action) {
 			err = handleShiftAction(action, token, stateStack, nodeStack)
@@ -146,7 +146,7 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 	lookupCol, exists := SymbolColMapping[left]
 
 	if !exists {
-		err = getParseError(token, "parse table column not found for symbol %q", left)
+		err = getParseError(token, "unrecognized symbol %q", left)
 	}
 
 	gotoState, e := strconv.Atoi(LR1ParseTable[lookupState][lookupCol])
