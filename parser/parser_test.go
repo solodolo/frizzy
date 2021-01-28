@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -43,10 +44,8 @@ func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 		StringParseNode{},
 	}
 
-	equal := nodeSlicesEqual(expected, nodes)
-
-	if !equal {
-		t.Errorf("Expected %v. Got %v.", expected, nodes)
+	if equal, msg := nodeSlicesEqual(expected, nodes); !equal {
+		t.Error(msg)
 	}
 }
 
@@ -259,8 +258,8 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 			t.Errorf("Expected no errors. Got %q.", err.Error())
 		}
 
-		if !nodeSlicesEqual(test.nodes, nodes) {
-			t.Errorf("Expected %v. Got %v.", test.nodes, nodes)
+		if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
+			t.Error(msg)
 		}
 	}
 }
@@ -394,11 +393,158 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			}},
 			nodes: []TreeNode{
 				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "D"},
+				StringParseNode{Value: "{{"},
+				NonTerminalParseNode{Value: "G"},
+				StringParseNode{Value: "}}"},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{:"},
+				lexer.StrToken{Str: "foobar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "E"},
+				StringParseNode{Value: "{{:"},
+				NonTerminalParseNode{Value: "F"},
+				StringParseNode{Value: "}}"},
+				NonTerminalParseNode{Value: "K"},
+				NonTerminalParseNode{Value: "L"},
+				NonTerminalParseNode{Value: "M"},
+				NonTerminalParseNode{Value: "U"},
+				NonTerminalParseNode{Value: "N"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "P"},
+				StringParseNode{Value: "foobar"},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "5"},
+				lexer.AddOpToken{Operator: "+"},
+				lexer.NumToken{Num: "2"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "D"},
+				StringParseNode{Value: "{{"},
+				NonTerminalParseNode{Value: "F"},
+				StringParseNode{Value: "}}"},
+				NonTerminalParseNode{Value: "K"},
+				NonTerminalParseNode{Value: "L"},
+				NonTerminalParseNode{Value: "M"},
+				NonTerminalParseNode{Value: "U"},
+				NonTerminalParseNode{Value: "N"},
+				NonTerminalParseNode{Value: "N"},
+				StringParseNode{Value: "+"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "P"},
+				NonTerminalParseNode{Value: "P"},
+				NumParseNode{Value: 5},
+				NumParseNode{Value: 2},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "5"},
+				lexer.AddOpToken{Operator: "+"},
+				lexer.NumToken{Num: "2"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "D"},
+				StringParseNode{Value: "{{"},
+				NonTerminalParseNode{Value: "F"},
+				StringParseNode{Value: "}}"},
+				NonTerminalParseNode{Value: "K"},
+				NonTerminalParseNode{Value: "L"},
+				NonTerminalParseNode{Value: "M"},
+				NonTerminalParseNode{Value: "U"},
+				NonTerminalParseNode{Value: "N"},
+				NonTerminalParseNode{Value: "N"},
+				StringParseNode{Value: "+"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "P"},
+				NonTerminalParseNode{Value: "P"},
+				NumParseNode{Value: 5},
+				NumParseNode{Value: 2},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "5"},
+				lexer.AddOpToken{Operator: "-"},
+				lexer.NumToken{Num: "2"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "D"},
+				StringParseNode{Value: "{{"},
+				NonTerminalParseNode{Value: "F"},
+				StringParseNode{Value: "}}"},
+				NonTerminalParseNode{Value: "K"},
+				NonTerminalParseNode{Value: "L"},
+				NonTerminalParseNode{Value: "M"},
+				NonTerminalParseNode{Value: "U"},
+				NonTerminalParseNode{Value: "N"},
+				NonTerminalParseNode{Value: "N"},
+				StringParseNode{Value: "-"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "P"},
+				NonTerminalParseNode{Value: "P"},
+				NumParseNode{Value: 5},
+				NumParseNode{Value: 2},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{"},
+				},
+				{
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
+			},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "D"},
+				StringParseNode{Value: "{{"},
+				NonTerminalParseNode{Value: "G"},
+				StringParseNode{Value: "}}"},
 			},
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		tokChan := getTokChan(test.tokens)
 		nodeChan := make(chan TreeNode)
 		errChan := make(chan error)
@@ -414,13 +560,13 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 		}()
 
 		if err := <-errChan; err != nil {
-			t.Errorf("Expected no errors. Got %q.", err.Error())
+			t.Errorf("Test %d failed.\nExpected no errors. Got %q.", i, err.Error())
 		}
 
 		flatChildren := flattenChildren(nodes[0])
 
-		if !nodeSlicesEqual(flatChildren, test.nodes) {
-			t.Errorf("Expected %#v. Got %#v.", test.nodes, nodes)
+		if equal, msg := nodeSlicesEqual(test.nodes, flatChildren); !equal {
+			t.Errorf("Test %d failed.\n%s", i, msg)
 		}
 	}
 }
@@ -440,24 +586,46 @@ func getTokChan(tokens [][]lexer.Token) chan []lexer.Token {
 }
 
 func flattenChildren(node TreeNode) []TreeNode {
-	allChildren := node.GetChildren()
-	for _, child := range allChildren {
-		allChildren = append(allChildren, flattenChildren(child)...)
+	allChildren := []TreeNode{node}
+	queue := node.GetChildren()
+
+	for len(queue) > 0 {
+		child := queue[0]
+		queue = queue[1:]
+		queue = append(queue, child.GetChildren()...)
+
+		allChildren = append(allChildren, child)
 	}
 
 	return allChildren
 }
 
-func nodeSlicesEqual(expected, got []TreeNode) bool {
+func nodeSlicesEqual(expected, got []TreeNode) (bool, string) {
 	if len(expected) != len(got) {
-		return false
+		return false, fmt.Sprintf("Expected %d nodes. Got %d.", len(expected), len(got))
 	}
 
 	for i := 0; i < len(expected); i++ {
-		if reflect.TypeOf(expected[i]) != reflect.TypeOf(got[i]) {
-			return false
+		expectedNode := expected[i]
+		gotNode := got[i]
+
+		if reflect.TypeOf(expectedNode) != reflect.TypeOf(gotNode) {
+			return false, fmt.Sprintf("Expected type %q. Got type %q.", reflect.TypeOf(expected[i]), reflect.TypeOf(got[i]))
+		}
+
+		switch node := expectedNode.(type) {
+		case NonTerminalParseNode:
+			gn := gotNode.(NonTerminalParseNode)
+			if gn.Value != node.Value {
+				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
+			}
+		case StringParseNode:
+			gn := gotNode.(StringParseNode)
+			if gn.Value != node.Value {
+				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
+			}
 		}
 	}
 
-	return true
+	return true, ""
 }
