@@ -1,5 +1,7 @@
 package parser
 
+import "fmt"
+
 // program -> blocks
 
 // blocks -> block | print_block
@@ -29,6 +31,7 @@ package parser
 // statement_list -> statement_list statement; | ε
 type TreeNode interface {
 	GetChildren() []TreeNode
+	fmt.Stringer
 }
 
 type ParseNode struct {
@@ -44,9 +47,17 @@ type NonTerminalParseNode struct {
 	ParseNode
 }
 
+func (node NonTerminalParseNode) String() string {
+	return fmt.Sprintf("%T: %s", node, node.Value)
+}
+
 type StringParseNode struct {
 	Value string
 	ParseNode
+}
+
+func (node StringParseNode) String() string {
+	return fmt.Sprintf("%T: %q", node, node.Value)
 }
 
 type NumParseNode struct {
@@ -54,9 +65,17 @@ type NumParseNode struct {
 	ParseNode
 }
 
+func (node NumParseNode) String() string {
+	return fmt.Sprintf("%T: %d", node, node.Value)
+}
+
 type BoolParseNode struct {
 	Value bool
 	ParseNode
+}
+
+func (node BoolParseNode) String() string {
+	return fmt.Sprintf("%T: %t", node, node.Value)
 }
 
 type IdentParseNode struct {
@@ -64,7 +83,15 @@ type IdentParseNode struct {
 	ParseNode
 }
 
+func (node IdentParseNode) String() string {
+	return fmt.Sprintf("%T: %s", node, node.Value)
+}
+
 type VarParseNode struct {
 	Value string
 	ParseNode
+}
+
+func (node VarParseNode) String() string {
+	return fmt.Sprintf("%T: %s", node, node.Value)
 }
