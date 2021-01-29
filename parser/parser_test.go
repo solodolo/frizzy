@@ -238,6 +238,71 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 				NonTerminalParseNode{},
 			},
 		},
+		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{"},
+				},
+				{
+					lexer.IfToken{},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.IdentToken{Identifier: "foo"},
+					lexer.RelOpToken{Operator: "<"},
+					lexer.IdentToken{Identifier: "bar"},
+					lexer.SymbolToken{Symbol: ")"},
+				},
+				{
+					lexer.IdentToken{Identifier: "print"},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.StrToken{Str: "foo"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.SymbolToken{Symbol: ";"},
+					lexer.IdentToken{Identifier: "print"},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.StrToken{Str: "not bar"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.SymbolToken{Symbol: ";"},
+				},
+				{
+					lexer.ElseIfToken{},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.IdentToken{Identifier: "foo"},
+					lexer.RelOpToken{Operator: ">"},
+					lexer.IdentToken{Identifier: "bar"},
+					lexer.SymbolToken{Symbol: ")"},
+				},
+				{
+					lexer.IdentToken{Identifier: "print"},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.StrToken{Str: "bar"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.SymbolToken{Symbol: ";"},
+					lexer.IdentToken{Identifier: "print"},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.StrToken{Str: "not foo"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.SymbolToken{Symbol: ";"},
+				},
+				{
+					lexer.ElseToken{},
+				},
+				{
+					lexer.IdentToken{Identifier: "print"},
+					lexer.SymbolToken{Symbol: "("},
+					lexer.StrToken{Str: "not bar not foo"},
+					lexer.SymbolToken{Symbol: ")"},
+					lexer.SymbolToken{Symbol: ";"},
+					lexer.EndToken{},
+				},
+				{
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
+			},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -358,6 +423,18 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 			},
 			errMsg: `unrecognized symbol "?"`,
 		},
+		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{"},
+				},
+				{
+					lexer.SymbolToken{Symbol: "?"},
+					lexer.BlockToken{Block: "}}"},
+				},
+			},
+			errMsg: `unrecognized symbol "?"`,
+		},
 	}
 
 	for _, test := range tests {
@@ -365,7 +442,7 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 		nodeChan := make(chan TreeNode)
 		errChan := make(chan error)
 		go Parse(tokChan, nodeChan, errChan)
-		go func() { <-nodeChan }()
+		<-nodeChan
 
 		err := <-errChan
 
@@ -385,22 +462,22 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 		tokens [][]lexer.Token
 		nodes  []TreeNode
 	}{
-		{
-			tokens: [][]lexer.Token{{
-				lexer.BlockToken{Block: "{{"},
-				lexer.BlockToken{Block: "}}"},
-				lexer.EOLToken{},
-			}},
-			nodes: []TreeNode{
-				NonTerminalParseNode{},
-				NonTerminalParseNode{Value: "B"},
-				NonTerminalParseNode{Value: "C"},
-				NonTerminalParseNode{Value: "D"},
-				StringParseNode{Value: "{{"},
-				NonTerminalParseNode{Value: "G"},
-				StringParseNode{Value: "}}"},
-			},
-		},
+		// {
+		// 	tokens: [][]lexer.Token{{
+		// 		lexer.BlockToken{Block: "{{"},
+		// 		lexer.BlockToken{Block: "}}"},
+		// 		lexer.EOLToken{},
+		// 	}},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "G"},
+		// 		StringParseNode{Value: "}}"},
+		// 	},
+		// },
 		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{:"},
@@ -426,122 +503,231 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 				StringParseNode{Value: "foobar"},
 			},
 		},
-		{
-			tokens: [][]lexer.Token{{
-				lexer.BlockToken{Block: "{{"},
-				lexer.NumToken{Num: "5"},
-				lexer.AddOpToken{Operator: "+"},
-				lexer.NumToken{Num: "2"},
-				lexer.BlockToken{Block: "}}"},
-				lexer.EOLToken{},
-			}},
-			nodes: []TreeNode{
-				NonTerminalParseNode{},
-				NonTerminalParseNode{Value: "B"},
-				NonTerminalParseNode{Value: "C"},
-				NonTerminalParseNode{Value: "D"},
-				StringParseNode{Value: "{{"},
-				NonTerminalParseNode{Value: "F"},
-				StringParseNode{Value: "}}"},
-				NonTerminalParseNode{Value: "K"},
-				NonTerminalParseNode{Value: "L"},
-				NonTerminalParseNode{Value: "M"},
-				NonTerminalParseNode{Value: "U"},
-				NonTerminalParseNode{Value: "N"},
-				NonTerminalParseNode{Value: "N"},
-				StringParseNode{Value: "+"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "P"},
-				NonTerminalParseNode{Value: "P"},
-				NumParseNode{Value: 5},
-				NumParseNode{Value: 2},
-			},
-		},
-		{
-			tokens: [][]lexer.Token{{
-				lexer.BlockToken{Block: "{{"},
-				lexer.NumToken{Num: "5"},
-				lexer.AddOpToken{Operator: "+"},
-				lexer.NumToken{Num: "2"},
-				lexer.BlockToken{Block: "}}"},
-				lexer.EOLToken{},
-			}},
-			nodes: []TreeNode{
-				NonTerminalParseNode{},
-				NonTerminalParseNode{Value: "B"},
-				NonTerminalParseNode{Value: "C"},
-				NonTerminalParseNode{Value: "D"},
-				StringParseNode{Value: "{{"},
-				NonTerminalParseNode{Value: "F"},
-				StringParseNode{Value: "}}"},
-				NonTerminalParseNode{Value: "K"},
-				NonTerminalParseNode{Value: "L"},
-				NonTerminalParseNode{Value: "M"},
-				NonTerminalParseNode{Value: "U"},
-				NonTerminalParseNode{Value: "N"},
-				NonTerminalParseNode{Value: "N"},
-				StringParseNode{Value: "+"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "P"},
-				NonTerminalParseNode{Value: "P"},
-				NumParseNode{Value: 5},
-				NumParseNode{Value: 2},
-			},
-		},
-		{
-			tokens: [][]lexer.Token{{
-				lexer.BlockToken{Block: "{{"},
-				lexer.NumToken{Num: "5"},
-				lexer.AddOpToken{Operator: "-"},
-				lexer.NumToken{Num: "2"},
-				lexer.BlockToken{Block: "}}"},
-				lexer.EOLToken{},
-			}},
-			nodes: []TreeNode{
-				NonTerminalParseNode{},
-				NonTerminalParseNode{Value: "B"},
-				NonTerminalParseNode{Value: "C"},
-				NonTerminalParseNode{Value: "D"},
-				StringParseNode{Value: "{{"},
-				NonTerminalParseNode{Value: "F"},
-				StringParseNode{Value: "}}"},
-				NonTerminalParseNode{Value: "K"},
-				NonTerminalParseNode{Value: "L"},
-				NonTerminalParseNode{Value: "M"},
-				NonTerminalParseNode{Value: "U"},
-				NonTerminalParseNode{Value: "N"},
-				NonTerminalParseNode{Value: "N"},
-				StringParseNode{Value: "-"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "O"},
-				NonTerminalParseNode{Value: "P"},
-				NonTerminalParseNode{Value: "P"},
-				NumParseNode{Value: 5},
-				NumParseNode{Value: 2},
-			},
-		},
-		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-				},
-				{
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
-			nodes: []TreeNode{
-				NonTerminalParseNode{},
-				NonTerminalParseNode{Value: "B"},
-				NonTerminalParseNode{Value: "C"},
-				NonTerminalParseNode{Value: "D"},
-				StringParseNode{Value: "{{"},
-				NonTerminalParseNode{Value: "G"},
-				StringParseNode{Value: "}}"},
-			},
-		},
+		// {
+		// 	tokens: [][]lexer.Token{{
+		// 		lexer.BlockToken{Block: "{{"},
+		// 		lexer.NumToken{Num: "5"},
+		// 		lexer.AddOpToken{Operator: "+"},
+		// 		lexer.NumToken{Num: "2"},
+		// 		lexer.BlockToken{Block: "}}"},
+		// 		lexer.EOLToken{},
+		// 	}},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "F"},
+		// 		StringParseNode{Value: "}}"},
+		// 		NonTerminalParseNode{Value: "K"},
+		// 		NonTerminalParseNode{Value: "L"},
+		// 		NonTerminalParseNode{Value: "M"},
+		// 		NonTerminalParseNode{Value: "U"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		StringParseNode{Value: "+"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NumParseNode{Value: 5},
+		// 		NumParseNode{Value: 2},
+		// 	},
+		// },
+		// {
+		// 	tokens: [][]lexer.Token{{
+		// 		lexer.BlockToken{Block: "{{"},
+		// 		lexer.NumToken{Num: "5"},
+		// 		lexer.AddOpToken{Operator: "+"},
+		// 		lexer.NumToken{Num: "2"},
+		// 		lexer.BlockToken{Block: "}}"},
+		// 		lexer.EOLToken{},
+		// 	}},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "F"},
+		// 		StringParseNode{Value: "}}"},
+		// 		NonTerminalParseNode{Value: "K"},
+		// 		NonTerminalParseNode{Value: "L"},
+		// 		NonTerminalParseNode{Value: "M"},
+		// 		NonTerminalParseNode{Value: "U"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		StringParseNode{Value: "+"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NumParseNode{Value: 5},
+		// 		NumParseNode{Value: 2},
+		// 	},
+		// },
+		// {
+		// 	tokens: [][]lexer.Token{{
+		// 		lexer.BlockToken{Block: "{{"},
+		// 		lexer.NumToken{Num: "5"},
+		// 		lexer.AddOpToken{Operator: "-"},
+		// 		lexer.NumToken{Num: "2"},
+		// 		lexer.BlockToken{Block: "}}"},
+		// 		lexer.EOLToken{},
+		// 	}},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "F"},
+		// 		StringParseNode{Value: "}}"},
+		// 		NonTerminalParseNode{Value: "K"},
+		// 		NonTerminalParseNode{Value: "L"},
+		// 		NonTerminalParseNode{Value: "M"},
+		// 		NonTerminalParseNode{Value: "U"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		StringParseNode{Value: "-"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NumParseNode{Value: 5},
+		// 		NumParseNode{Value: 2},
+		// 	},
+		// },
+		// {
+		// 	tokens: [][]lexer.Token{
+		// 		{
+		// 			lexer.BlockToken{Block: "{{"},
+		// 			lexer.NumToken{Num: "5"},
+		// 		},
+		// 		{
+		// 			lexer.AddOpToken{Operator: "+"},
+		// 			lexer.NumToken{Num: "2"},
+		// 		},
+		// 		{
+		// 			lexer.BlockToken{Block: "}}"},
+		// 			lexer.EOLToken{},
+		// 		},
+		// 	},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "F"},
+		// 		StringParseNode{Value: "}}"},
+		// 		NonTerminalParseNode{Value: "K"},
+		// 		NonTerminalParseNode{Value: "L"},
+		// 		NonTerminalParseNode{Value: "M"},
+		// 		NonTerminalParseNode{Value: "U"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		NonTerminalParseNode{Value: "N"},
+		// 		StringParseNode{Value: "+"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "O"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NonTerminalParseNode{Value: "P"},
+		// 		NumParseNode{Value: 5},
+		// 		NumParseNode{Value: 2},
+		// 	},
+		// },
+		// {
+		// 	tokens: [][]lexer.Token{
+		// 		{
+		// 			lexer.BlockToken{Block: "{{"},
+		// 		},
+		// 		{
+		// 			lexer.BlockToken{Block: "}}"},
+		// 			lexer.EOLToken{},
+		// 		},
+		// 	},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "G"},
+		// 		StringParseNode{Value: "}}"},
+		// 	},
+		// },
+		// {
+		// 	tokens: [][]lexer.Token{
+		// 		{
+		// 			lexer.BlockToken{Block: "{{"},
+		// 		},
+		// 		{
+		// 			lexer.IfToken{},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.IdentToken{Identifier: "foo"},
+		// 			lexer.RelOpToken{Operator: "<"},
+		// 			lexer.IdentToken{Identifier: "bar"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 		},
+		// 		{
+		// 			lexer.IdentToken{Identifier: "print"},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.StrToken{Str: "foo"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 			lexer.SymbolToken{Symbol: ";"},
+		// 			lexer.IdentToken{Identifier: "print"},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.StrToken{Str: "not bar"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 			lexer.SymbolToken{Symbol: ";"},
+		// 		},
+		// 		{
+		// 			lexer.ElseIfToken{},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.IdentToken{Identifier: "foo"},
+		// 			lexer.RelOpToken{Operator: ">"},
+		// 			lexer.IdentToken{Identifier: "bar"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 		},
+		// 		{
+		// 			lexer.IdentToken{Identifier: "print"},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.StrToken{Str: "bar"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 			lexer.SymbolToken{Symbol: ";"},
+		// 			lexer.IdentToken{Identifier: "print"},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.StrToken{Str: "not foo"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 			lexer.SymbolToken{Symbol: ";"},
+		// 		},
+		// 		{
+		// 			lexer.ElseToken{},
+		// 		},
+		// 		{
+		// 			lexer.IdentToken{Identifier: "print"},
+		// 			lexer.SymbolToken{Symbol: "("},
+		// 			lexer.StrToken{Str: "not bar not foo"},
+		// 			lexer.SymbolToken{Symbol: ")"},
+		// 			lexer.SymbolToken{Symbol: ";"},
+		// 			lexer.EndToken{},
+		// 		},
+		// 		{
+		// 			lexer.BlockToken{Block: "}}"},
+		// 			lexer.EOLToken{},
+		// 		},
+		// 	},
+		// 	nodes: []TreeNode{
+		// 		NonTerminalParseNode{},
+		// 		NonTerminalParseNode{Value: "B"},
+		// 		NonTerminalParseNode{Value: "C"},
+		// 		NonTerminalParseNode{Value: "D"},
+		// 		StringParseNode{Value: "{{"},
+		// 		NonTerminalParseNode{Value: "G"},
+		// 		StringParseNode{Value: "}}"},
+		// 	},
+		// },
 	}
 
 	for i, test := range tests {
@@ -553,15 +739,15 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 
 		nodes := []TreeNode{}
 
-		go func() {
-			for node := range nodeChan {
-				nodes = append(nodes, node)
-			}
-		}()
+		for node := range nodeChan {
+			nodes = append(nodes, node)
+		}
 
 		if err := <-errChan; err != nil {
 			t.Errorf("Test %d failed.\nExpected no errors. Got %q.", i, err.Error())
 		}
+
+		printTreeStr(nodes[0])
 
 		flatChildren := flattenChildren(nodes[0])
 
@@ -583,6 +769,45 @@ func getTokChan(tokens [][]lexer.Token) chan []lexer.Token {
 	}(tokens)
 
 	return tokChan
+}
+
+func printTreeStr(node TreeNode) {
+	treeStrs := genTreeStr(node, 0, true)
+
+	for _, str := range treeStrs {
+		fmt.Println(str)
+	}
+}
+
+func genTreeStr(node TreeNode, level int, lastChild bool) []string {
+	children := node.GetChildren()
+	numChildren := len(children)
+	treeStrs := []string{fmt.Sprintf("%s", node)}
+
+	if numChildren == 0 {
+		return treeStrs
+	}
+
+	for i := 0; i < numChildren; i++ {
+		child := children[i]
+		childStrs := genTreeStr(child, level+1, i >= numChildren-1)
+
+		childStrs[0] = "|-- " + childStrs[0]
+
+		connect := len(childStrs) > 1 && i < numChildren-1
+
+		for j := 1; j < len(childStrs); j++ {
+			if connect {
+				childStrs[j] = "|  " + childStrs[j]
+			} else {
+				childStrs[j] = "   " + childStrs[j]
+			}
+		}
+
+		treeStrs = append(treeStrs, childStrs...)
+	}
+
+	return treeStrs
 }
 
 func flattenChildren(node TreeNode) []TreeNode {
@@ -623,6 +848,16 @@ func nodeSlicesEqual(expected, got []TreeNode) (bool, string) {
 			gn := gotNode.(StringParseNode)
 			if gn.Value != node.Value {
 				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
+			}
+		case NumParseNode:
+			gn := gotNode.(NumParseNode)
+			if gn.Value != node.Value {
+				return false, fmt.Sprintf("Expected number %d. Got number %d.", node.Value, gn.Value)
+			}
+		case IdentParseNode:
+			gn := gotNode.(IdentParseNode)
+			if gn.Value != node.Value {
+				return false, fmt.Sprintf("Expected ident %q. Got ident %q.", node.Value, gn.Value)
 			}
 		}
 	}
