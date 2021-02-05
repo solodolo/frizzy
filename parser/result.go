@@ -4,14 +4,10 @@ type Result interface {
 	GetResult() interface{}
 }
 
-type IntResult int
-
-func (result IntResult) GetResult() interface{} {
-	return result
+type AddableResult interface {
+	Add(right Result) (Result, error)
 }
 
-type StringResult string
-
-func (result StringResult) GetResult() interface{} {
-	return result
+type MultipliableResult interface {
+	Multiply(right Result) (Result, error)
 }
