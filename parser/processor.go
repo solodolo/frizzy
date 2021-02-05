@@ -1,5 +1,9 @@
 package parser
 
+import (
+	"fmt"
+)
+
 func Process(nodeChan <-chan TreeNode) {
 	var globalContext Context
 	for node := range nodeChan {
@@ -7,9 +11,56 @@ func Process(nodeChan <-chan TreeNode) {
 	}
 }
 
-func processHeadNode(head TreeNode, context Context) {
+func processHeadNode(head TreeNode, context Context) Result {
 	// if head is an assignment
 	//	add to context
+	switch typedNode := head.(type) {
+	case NonTerminalParseNode:
+		children := head.GetChildren()
+		left := processHeadNode(children[0], context)
+		operator := processHeadNode(children[1], context)
+		right := processHeadNode(children[len(children)-1], context)
+
+		if typedNode.IsAssignment() {
+			varName := left.GetResult().(string)
+
+			context[varName] = left
+			return nil
+		} else if typedNode.IsAddition() {
+			leftOp := left.(AddableResult)
+			addResult, err := leftOp.Add(right)
+
+			if err != nil {
+				panic(fmt.Sprintf("add error: %s", err))
+			}
+			return addResult
+		} else if typedNode.IsMultiplication() {
+			leftOp := left.(MultipliableResult)
+			multResult, err := leftOp.Multiply(right)
+
+			if err != nil {
+				panic(fmt.Sprintf("multiplication error: %s", err))
+			}
+			return multResult
+		} else if typedNode.IsLogic() {
+			leftOp := left.()
+		}
+	case StringParseNode:
+		return StringResult(typedNode.Value)
+	case NumParseNode:
+		return IntResult(typedNode.Value)
+	case BoolParseNode:
+		return BoolResult(typedNode.Value)
+	case VarParseNode:
+		contextKey := typedNode.Value
+		contextVal, exists := context[contextKey]
+
+		if !exists {
+			panic(fmt.Sprintf("context key %s not found", contextKey))
+		}
+
+		return contextVal
+	}
 	//
 	// send context down recursively to each child
 	//
@@ -18,6 +69,8 @@ func processHeadNode(head TreeNode, context Context) {
 	//		return IntResult
 	//	else if head is a string value
 	//		return StringResult
+	//	else if head is a bool value
+	//		return BoolResult
 	// else if binary operator node
 	//	perform operation with left and right Result
 	// else if unary operator node
@@ -36,4 +89,5 @@ func processHeadNode(head TreeNode, context Context) {
 	// else print block or non-print block
 	//	what do we do here?
 	//
+	return nil
 }
