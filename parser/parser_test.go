@@ -514,6 +514,33 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			},
 		},
 		{
+			tokens: [][]lexer.Token{
+				{
+					lexer.BlockToken{Block: "{{:"},
+					lexer.VarToken{Variable: "post.title"},
+					lexer.BlockToken{Block: "}}"},
+					lexer.EOLToken{},
+				},
+			},
+			nodes: []TreeNode{
+				NonTerminalParseNode{},
+				NonTerminalParseNode{Value: "B"},
+				NonTerminalParseNode{Value: "C"},
+				NonTerminalParseNode{Value: "E"},
+				StringParseNode{Value: "{{:"},
+				NonTerminalParseNode{Value: "F"},
+				StringParseNode{Value: "}}"},
+				NonTerminalParseNode{Value: "K"},
+				NonTerminalParseNode{Value: "L"},
+				NonTerminalParseNode{Value: "M"},
+				NonTerminalParseNode{Value: "U"},
+				NonTerminalParseNode{Value: "N"},
+				NonTerminalParseNode{Value: "O"},
+				NonTerminalParseNode{Value: "P"},
+				VarParseNode{Value: "post.title"},
+			},
+		},
+		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{:"},
 				lexer.StrToken{Str: "foobar"},
