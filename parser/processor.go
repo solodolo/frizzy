@@ -18,7 +18,7 @@ func processHeadNode(head TreeNode, context Context) Result {
 	case NonTerminalParseNode:
 		children := head.GetChildren()
 		left := processHeadNode(children[0], context)
-		operator := processHeadNode(children[1], context)
+		operator := processHeadNode(children[1], context).(StringResult)
 		right := processHeadNode(children[len(children)-1], context)
 
 		if typedNode.IsAssignment() {
@@ -27,23 +27,27 @@ func processHeadNode(head TreeNode, context Context) Result {
 			context[varName] = left
 			return nil
 		} else if typedNode.IsAddition() {
-			leftOp := left.(AddableResult)
-			addResult, err := leftOp.Add(right)
+			addResult, err := processAddition(left, right, string(operator))
 
 			if err != nil {
-				panic(fmt.Sprintf("add error: %s", err))
+				panic(fmt.Sprintf("addition error: %s", err))
 			}
+
 			return addResult
 		} else if typedNode.IsMultiplication() {
-			leftOp := left.(MultipliableResult)
-			multResult, err := leftOp.Multiply(right)
+			multResult, err := processMultiplication(left, right, string(operator))
 
 			if err != nil {
 				panic(fmt.Sprintf("multiplication error: %s", err))
 			}
 			return multResult
 		} else if typedNode.IsLogic() {
-			leftOp := left.()
+			logicResult, err := processLogic(left, right, string(operator))
+
+			if err != nil {
+				panic(fmt.Sprintf("logic error: %s", err))
+			}
+			return logicResult
 		}
 	case StringParseNode:
 		return StringResult(typedNode.Value)
@@ -90,4 +94,44 @@ func processHeadNode(head TreeNode, context Context) Result {
 	//	what do we do here?
 	//
 	return nil
+}
+
+func processAddition(left, right Result, operator string) (Result, error) {
+	if operator == "+" {
+		leftOp := left.(AddableResult)
+		return leftOp.Add(right)
+	} else if operator == "-" {
+		leftOp := left.(SubtractableResult)
+		return leftOp.Subtract(right)
+	}
+
+	return nil, fmt.Errorf("Invalid addition operator %q", operator)
+}
+
+func processMultiplication(left, right Result, operator string) (Result, error) {
+	leftOp := left.(MultipliableResult)
+	if operator == "*" {
+		return leftOp.Multiply(right)
+	} else if operator == "/" {
+		return leftOp.Divide(right)
+	}
+
+	return nil, fmt.Errorf("Invalid multiplication operator %q", operator)
+}
+
+func processLogic(left, right Result, operator string) (Result, error) {
+	leftOp := left.(LogicalResult)
+	if operator == "<" {
+		return leftOp.LessThan(right)
+	} else if operator == ">" {
+		return leftOp.GreaterThan(right)
+	} else if operator == "==" {
+		return leftOp.EqualTo(right)
+	} else if operator == "<=" {
+		return leftOp.LessThanEqual(right)
+	} else if operator == ">=" {
+		return leftOp.GreaterThanEqual(right)
+	}
+
+	return nil, fmt.Errorf("Invalid logic operator %q", operator)
 }
