@@ -58,3 +58,8 @@ func (receiver BoolResult) LessThanEqual(right Result) (Result, error) {
 func (receiver BoolResult) GreaterThanEqual(right Result) (Result, error) {
 	return nil, fmt.Errorf("Cannot determine %T >= %T", receiver, right)
 }
+
+// Not returns the inverse of the receiver
+func (receiver BoolResult) Not() (Result, error) {
+	return !receiver, nil
+}

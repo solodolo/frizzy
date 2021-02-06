@@ -24,3 +24,7 @@ type LogicalResult interface {
 	LessThanEqual(right Result) (Result, error)
 	GreaterThanEqual(right Result) (Result, error)
 }
+
+type UnaryResult interface {
+	Not() (Result, error)
+}
