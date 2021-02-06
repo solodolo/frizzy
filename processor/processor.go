@@ -2,20 +2,22 @@ package parser
 
 import (
 	"fmt"
+
+	"mettlach.codes/frizzy/parser"
 )
 
-func Process(nodeChan <-chan TreeNode) {
+func Process(nodeChan <-chan parser.TreeNode) {
 	var globalContext Context
 	for node := range nodeChan {
 		processHeadNode(node, globalContext)
 	}
 }
 
-func processHeadNode(head TreeNode, context Context) Result {
+func processHeadNode(head parser.TreeNode, context Context) Result {
 	// if head is an assignment
 	//	add to context
 	switch typedNode := head.(type) {
-	case NonTerminalParseNode:
+	case parser.NonTerminalParseNode:
 		children := head.GetChildren()
 
 		if typedNode.IsAssignment() {
@@ -55,13 +57,13 @@ func processHeadNode(head TreeNode, context Context) Result {
 
 			return unaryResult
 		}
-	case StringParseNode:
+	case parser.StringParseNode:
 		return StringResult(typedNode.Value)
-	case NumParseNode:
+	case parser.NumParseNode:
 		return IntResult(typedNode.Value)
-	case BoolParseNode:
+	case parser.BoolParseNode:
 		return BoolResult(typedNode.Value)
-	case VarParseNode:
+	case parser.VarParseNode:
 		contextKey := typedNode.Value
 		contextVal, exists := context[contextKey]
 
@@ -103,8 +105,8 @@ func processHeadNode(head TreeNode, context Context) Result {
 }
 
 // Returns the operator and operands of the binary operation represented in ops
-// e.g. given 5 + 4, ops = []TreeNode{5, '+', 4}
-func getBinaryOperatorAndOperands(ops []TreeNode, context Context) (Result, Result, string) {
+// e.g. given 5 + 4, ops = []parser.TreeNode{5, '+', 4}
+func getBinaryOperatorAndOperands(ops []parser.TreeNode, context Context) (Result, Result, string) {
 	left := processHeadNode(ops[0], context)
 	operator := processHeadNode(ops[1], context).(StringResult)
 	right := processHeadNode(ops[len(ops)-1], context)
@@ -113,8 +115,8 @@ func getBinaryOperatorAndOperands(ops []TreeNode, context Context) (Result, Resu
 }
 
 // Returns the operator and operand of the unary operation in ops
-// e.g. given !false, ops = []TreeNode{"!", false}
-func getUnaryOperatorAndOperand(ops []TreeNode, context Context) (Result, string) {
+// e.g. given !false, ops = []parser.TreeNode{"!", false}
+func getUnaryOperatorAndOperand(ops []parser.TreeNode, context Context) (Result, string) {
 	operator := processHeadNode(ops[0], context).(StringResult)
 	right := processHeadNode(ops[len(ops)-1], context)
 
