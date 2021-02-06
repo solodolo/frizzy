@@ -7,17 +7,87 @@ import (
 
 type StringResult string
 
-func (result StringResult) GetResult() interface{} {
-	return result
+func (receiver StringResult) GetResult() interface{} {
+	return receiver
 }
 
-func (left StringResult) Add(right Result) (Result, error) {
+func (receiver StringResult) Add(right Result) (Result, error) {
 	switch typedRight := right.(type) {
 	case IntResult:
-		return StringResult(string(left) + strconv.Itoa(int(typedRight))), nil
+		return StringResult(string(receiver) + strconv.Itoa(int(typedRight))), nil
 	case StringResult:
-		return StringResult(left + typedRight), nil
+		return StringResult(receiver + typedRight), nil
 	default:
-		return nil, fmt.Errorf("Cannot add a %T to a %T", left, right)
+		return nil, fmt.Errorf("Cannot add a %T to a %T", receiver, right)
+	}
+}
+
+// LessThan checks if the provided result is logically less than
+// the receiver
+func (receiver StringResult) LessThan(right Result) (Result, error) {
+	switch typedResult := right.(type) {
+	case IntResult:
+		str := strconv.Itoa(int(typedResult))
+		return BoolResult(string(receiver) < str), nil
+	case StringResult:
+		return BoolResult(receiver < typedResult), nil
+	default:
+		return nil, fmt.Errorf("Cannot determine %T < %T", receiver, right)
+	}
+}
+
+// GreaterThan checks if the provided result is logically greater than
+// the receiver
+func (receiver StringResult) GreaterThan(right Result) (Result, error) {
+	switch typedResult := right.(type) {
+	case IntResult:
+		str := strconv.Itoa(int(typedResult))
+		return BoolResult(string(receiver) > str), nil
+	case StringResult:
+		return BoolResult(receiver > typedResult), nil
+	default:
+		return nil, fmt.Errorf("Cannot determine %T > %T", receiver, right)
+	}
+}
+
+// EqualTo checks if the provided result is logically equal to
+// the receiver
+func (receiver StringResult) EqualTo(right Result) (Result, error) {
+	switch typedResult := right.(type) {
+	case IntResult:
+		str := strconv.Itoa(int(typedResult))
+		return BoolResult(string(receiver) == str), nil
+	case StringResult:
+		return BoolResult(receiver == typedResult), nil
+	default:
+		return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
+	}
+}
+
+// LessThanEqual checks if the provided result is logically less than or equal to
+// the receiver
+func (receiver StringResult) LessThanEqual(right Result) (Result, error) {
+	switch typedResult := right.(type) {
+	case IntResult:
+		str := strconv.Itoa(int(typedResult))
+		return BoolResult(string(receiver) <= str), nil
+	case StringResult:
+		return BoolResult(receiver <= typedResult), nil
+	default:
+		return nil, fmt.Errorf("Cannot determine %T <= %T", receiver, right)
+	}
+}
+
+// GreaterThanEqual checks if the provided result is logically greater than or equal to
+// the receiver
+func (receiver StringResult) GreaterThanEqual(right Result) (Result, error) {
+	switch typedResult := right.(type) {
+	case IntResult:
+		str := strconv.Itoa(int(typedResult))
+		return BoolResult(string(receiver) >= str), nil
+	case StringResult:
+		return BoolResult(receiver >= typedResult), nil
+	default:
+		return nil, fmt.Errorf("Cannot determine %T >= %T", receiver, right)
 	}
 }
