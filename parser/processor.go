@@ -54,8 +54,6 @@ func processHeadNode(head TreeNode, context Context) Result {
 			}
 
 			return unaryResult
-		} else if typedNode.IsForLoop() {
-
 		}
 	case StringParseNode:
 		return StringResult(typedNode.Value)
