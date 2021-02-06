@@ -90,6 +90,10 @@ func (node NonTerminalParseNode) IsRelation() bool {
 	return node.Value == "U" && len(node.children) > 1
 }
 
+func (node NonTerminalParseNode) IsUnary() bool {
+	return node.Value == "L" && len(node.children) > 1
+}
+
 type StringParseNode struct {
 	Value string
 	ParseNode

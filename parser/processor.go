@@ -17,17 +17,15 @@ func processHeadNode(head TreeNode, context Context) Result {
 	switch typedNode := head.(type) {
 	case NonTerminalParseNode:
 		children := head.GetChildren()
-		left := processHeadNode(children[0], context)
-		operator := processHeadNode(children[1], context).(StringResult)
-		right := processHeadNode(children[len(children)-1], context)
 
 		if typedNode.IsAssignment() {
+			left, right, _ := getBinaryOperatorAndOperands(children, context)
 			varName := left.GetResult().(string)
 
-			context[varName] = left
+			context[varName] = right
 			return nil
 		} else if typedNode.IsAddition() {
-			addResult, err := processAddition(left, right, string(operator))
+			addResult, err := processAddition(getBinaryOperatorAndOperands(children, context))
 
 			if err != nil {
 				panic(fmt.Sprintf("addition error: %s", err))
@@ -35,19 +33,29 @@ func processHeadNode(head TreeNode, context Context) Result {
 
 			return addResult
 		} else if typedNode.IsMultiplication() {
-			multResult, err := processMultiplication(left, right, string(operator))
+			multResult, err := processMultiplication(getBinaryOperatorAndOperands(children, context))
 
 			if err != nil {
 				panic(fmt.Sprintf("multiplication error: %s", err))
 			}
 			return multResult
 		} else if typedNode.IsLogic() {
-			logicResult, err := processLogic(left, right, string(operator))
+			logicResult, err := processLogic(getBinaryOperatorAndOperands(children, context))
 
 			if err != nil {
 				panic(fmt.Sprintf("logic error: %s", err))
 			}
 			return logicResult
+		} else if typedNode.IsUnary() {
+			unaryResult, err := processUnary(getUnaryOperatorAndOperand(children, context))
+
+			if err != nil {
+				panic(fmt.Sprintf("unary error: %s", err))
+			}
+
+			return unaryResult
+		} else if typedNode.IsForLoop() {
+
 		}
 	case StringParseNode:
 		return StringResult(typedNode.Value)
@@ -60,7 +68,7 @@ func processHeadNode(head TreeNode, context Context) Result {
 		contextVal, exists := context[contextKey]
 
 		if !exists {
-			panic(fmt.Sprintf("context key %s not found", contextKey))
+			panic(fmt.Sprintf("variable %q not defined", contextKey))
 		}
 
 		return contextVal
@@ -94,6 +102,25 @@ func processHeadNode(head TreeNode, context Context) Result {
 	//	what do we do here?
 	//
 	return nil
+}
+
+// Returns the operator and operands of the binary operation represented in ops
+// e.g. given 5 + 4, ops = []TreeNode{5, '+', 4}
+func getBinaryOperatorAndOperands(ops []TreeNode, context Context) (Result, Result, string) {
+	left := processHeadNode(ops[0], context)
+	operator := processHeadNode(ops[1], context).(StringResult)
+	right := processHeadNode(ops[len(ops)-1], context)
+
+	return left, right, string(operator)
+}
+
+// Returns the operator and operand of the unary operation in ops
+// e.g. given !false, ops = []TreeNode{"!", false}
+func getUnaryOperatorAndOperand(ops []TreeNode, context Context) (Result, string) {
+	operator := processHeadNode(ops[0], context).(StringResult)
+	right := processHeadNode(ops[len(ops)-1], context)
+
+	return right, string(operator)
 }
 
 func processAddition(left, right Result, operator string) (Result, error) {
@@ -134,4 +161,13 @@ func processLogic(left, right Result, operator string) (Result, error) {
 	}
 
 	return nil, fmt.Errorf("Invalid logic operator %q", operator)
+}
+
+func processUnary(right Result, operator string) (Result, error) {
+	rightOp := right.(UnaryResult)
+	if operator == "!" {
+		return rightOp.Not()
+	}
+
+	return nil, fmt.Errorf("Invalid unary operator %q", operator)
 }
