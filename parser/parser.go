@@ -120,7 +120,7 @@ func handleShiftAction(action string, token lexer.Token, stateStack *[]int, node
 	*stateStack = append(*stateStack, nextState)
 
 	// Add tree node to stack
-	node := getNodeForToken(token)
+	node := getTerminalNodeForToken(token)
 	*nodeStack = append(*nodeStack, node)
 
 	return
@@ -159,12 +159,12 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 	// Push goto state on top of stack
 	*stateStack = append(*stateStack, gotoState)
 
-	// Create non-terminal
-	node := NonTerminalParseNode{Value: left}
-	node.children = make([]TreeNode, numToPop)
-
 	// Stack symbols that will be popped become children of new node
-	copy(node.children, (*nodeStack)[len(*nodeStack)-numToPop:])
+	children := make([]TreeNode, numToPop)
+	copy(children, (*nodeStack)[len(*nodeStack)-numToPop:])
+
+	// Create non-terminal
+	node := getNonTerminalNodeForReduction(left, children)
 
 	// Actually pop symbols
 	*nodeStack = (*nodeStack)[:len(*nodeStack)-numToPop]
@@ -176,7 +176,7 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 }
 
 // Creates the appropriate tree node for a given token
-func getNodeForToken(token lexer.Token) TreeNode {
+func getTerminalNodeForToken(token lexer.Token) TreeNode {
 	var node TreeNode
 
 	switch tok := token.(type) {
@@ -186,8 +186,8 @@ func getNodeForToken(token lexer.Token) TreeNode {
 	case lexer.BoolToken:
 		truthy := tok.Value == "true"
 		node = BoolParseNode{Value: truthy}
-	case lexer.IdentToken:
-		ident := tok.Identifier
+	case lexer.IdentToken, lexer.ForToken, lexer.InToken, lexer.IfToken, lexer.ElseIfToken, lexer.ElseToken, lexer.EndToken:
+		ident := tok.GetValue()
 		node = IdentParseNode{Value: ident}
 	case lexer.VarToken:
 		varName := tok.Variable
@@ -198,6 +198,16 @@ func getNodeForToken(token lexer.Token) TreeNode {
 	}
 
 	return node
+}
+
+func getNonTerminalNodeForReduction(reduction string, children []TreeNode) TreeNode {
+	pn := ParseNode{children: children}
+	switch reduction {
+	case "R":
+		return ForLoopParseNode{ParseNode: pn}
+	default:
+		return NonTerminalParseNode{Value: reduction, ParseNode: pn}
+	}
 }
 
 // Returns an parse error formatted for the current token
