@@ -205,6 +205,8 @@ func getNonTerminalNodeForReduction(reduction string, children []TreeNode) TreeN
 	switch reduction {
 	case "R":
 		return ForLoopParseNode{ParseNode: pn}
+	case "H":
+		return FuncCallParseNode{ParseNode: pn}
 	default:
 		return NonTerminalParseNode{Value: reduction, ParseNode: pn}
 	}
