@@ -1,4 +1,4 @@
-package parser
+package processor
 
 type Result interface {
 	GetResult() interface{}
