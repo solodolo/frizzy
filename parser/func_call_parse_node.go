@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// FuncCallParseNode represents a function call in our grammar
 type FuncCallParseNode struct {
 	ParseNode
 }
