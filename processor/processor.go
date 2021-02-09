@@ -3,6 +3,7 @@ package processor
 import (
 	"fmt"
 
+	"mettlach.codes/frizzy/file"
 	"mettlach.codes/frizzy/parser"
 )
 
@@ -57,6 +58,21 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 
 			return unaryResult
 		}
+	case parser.ForLoopParseNode:
+		input := typedNode.GetLoopInput()
+		inputContexts := getLoopInputContexts(input)
+		loopBody := typedNode.GetLoopBody()
+
+		for _, inputContext := range inputContexts {
+			inputContext.Merge(&context)
+
+			for i := range loopBody {
+				processHeadNode(loopBody[i], inputContext)
+			}
+		}
+
+		// What should we return here?
+
 	case parser.StringParseNode:
 		return StringResult(typedNode.Value)
 	case parser.NumParseNode:
@@ -170,4 +186,23 @@ func processUnary(right Result, operator string) (Result, error) {
 	}
 
 	return nil, fmt.Errorf("Invalid unary operator %q", operator)
+}
+
+func getLoopInputContexts(input parser.TreeNode) []Context {
+	switch typedInput := input.(type) {
+	case parser.StringParseNode:
+		store := GetExportStore()
+		// typedInput is a path to content
+		contentPaths := file.GetContentPaths(typedInput.Value)
+		ret := make([]Context, len(contentPaths))
+
+		// iterate through dir in content dir
+		for i, path := range contentPaths {
+			ret[i] = store.Get(path)
+		}
+		return ret
+		// return array of export store context for each file
+	default:
+		return nil
+	}
 }
