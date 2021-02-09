@@ -27,3 +27,13 @@ func (receiver ForLoopParseNode) GetLoopInput() TreeNode {
 	// where "bar" is the loop input
 	return receiver.children[4]
 }
+
+// GetLoopBody returns the children of receiver that are part of the body
+// The body is any child between the for(foo in "bar") ... end
+func (receiver ForLoopParseNode) GetLoopBody() []TreeNode {
+	children := receiver.children
+	body := make([]TreeNode, len(children)-7)
+	copy(body, children[6:len(receiver.children)-1])
+
+	return body
+}
