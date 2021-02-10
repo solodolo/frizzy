@@ -5,8 +5,10 @@ import (
 	"strconv"
 )
 
+// BoolResult represents a boolean processor result
 type BoolResult bool
 
+// GetResult returns this result
 func (receiver BoolResult) GetResult() interface{} {
 	return receiver
 }
