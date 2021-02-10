@@ -63,16 +63,16 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 		inputContexts := getLoopInputContexts(input)
 		loopBody := typedNode.GetLoopBody()
 
+		bodyText := ""
+
 		for _, inputContext := range inputContexts {
 			inputContext.Merge(&context)
-
 			for i := range loopBody {
-				processHeadNode(loopBody[i], inputContext)
+				bodyText += processHeadNode(loopBody[i], inputContext).String() + "\n"
 			}
 		}
 
-		// What should we return here?
-
+		return StringResult(bodyText)
 	case parser.StringParseNode:
 		return StringResult(typedNode.Value)
 	case parser.NumParseNode:
