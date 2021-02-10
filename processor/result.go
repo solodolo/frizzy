@@ -1,7 +1,12 @@
 package processor
 
+import (
+	"fmt"
+)
+
 type Result interface {
 	GetResult() interface{}
+	fmt.Stringer
 }
 
 type AddableResult interface {

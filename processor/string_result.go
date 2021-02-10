@@ -11,6 +11,10 @@ func (receiver StringResult) GetResult() interface{} {
 	return receiver
 }
 
+func (receiver StringResult) String() string {
+	return string(receiver)
+}
+
 func (receiver StringResult) Add(right Result) (Result, error) {
 	switch typedRight := right.(type) {
 	case IntResult:

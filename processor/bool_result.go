@@ -2,12 +2,17 @@ package processor
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type BoolResult bool
 
 func (receiver BoolResult) GetResult() interface{} {
 	return receiver
+}
+
+func (receiver BoolResult) String() string {
+	return strconv.FormatBool(bool(receiver))
 }
 
 func convertToBool(result Result) (bool, bool) {
