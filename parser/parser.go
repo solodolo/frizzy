@@ -203,10 +203,16 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 func getNonTerminalNodeForReduction(reduction string, children []TreeNode) TreeNode {
 	pn := ParseNode{children: children}
 	switch reduction {
-	case "R":
-		return ForLoopParseNode{ParseNode: pn}
 	case "H":
 		return FuncCallParseNode{ParseNode: pn}
+	case "Q":
+		return IfStatementParseNode{ParseNode: pn}
+	case "R":
+		return ForLoopParseNode{ParseNode: pn}
+	case "S":
+		return ElseIfStatementParseNode{ParseNode: pn}
+	case "T":
+		return ElseParseNode{ParseNode: pn}
 	default:
 		return NonTerminalParseNode{Value: reduction, ParseNode: pn}
 	}
