@@ -4,6 +4,10 @@ import (
 	"fmt"
 )
 
+// ForLoopParseNode represents the parent node in a tree
+// containing a parsed for loop
+// The children will be the elements of this loop including
+// the loop condition and body
 type ForLoopParseNode struct {
 	ParseNode
 }
@@ -29,7 +33,12 @@ func (receiver ForLoopParseNode) GetLoopInput() TreeNode {
 }
 
 // GetLoopBody returns the children of receiver that are part of the body
-// The body is any child between the for(foo in "bar") ... end
+// The body is any child between the 'for(foo in "bar")' and the 'end'
+// i.e.
+// for(foo in 'bar')
+//		some body business
+//		more body business
+// end
 func (receiver ForLoopParseNode) GetLoopBody() []TreeNode {
 	children := receiver.children
 	body := make([]TreeNode, len(children)-7)
