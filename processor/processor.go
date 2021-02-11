@@ -18,7 +18,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 	// if head is an assignment
 	//	add to context
 	switch typedNode := head.(type) {
-	case parser.NonTerminalParseNode:
+	case *parser.NonTerminalParseNode:
 		children := head.GetChildren()
 
 		if typedNode.IsAssignment() {
@@ -58,7 +58,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 
 			return unaryResult
 		}
-	case parser.ForLoopParseNode:
+	case *parser.ForLoopParseNode:
 		input := typedNode.GetLoopInput()
 		inputContexts := getLoopInputContexts(input)
 		loopBody := typedNode.GetLoopBody()
@@ -73,13 +73,13 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 		}
 
 		return StringResult(bodyText)
-	case parser.StringParseNode:
+	case *parser.StringParseNode:
 		return StringResult(typedNode.Value)
-	case parser.NumParseNode:
+	case *parser.NumParseNode:
 		return IntResult(typedNode.Value)
-	case parser.BoolParseNode:
+	case *parser.BoolParseNode:
 		return BoolResult(typedNode.Value)
-	case parser.VarParseNode:
+	case *parser.VarParseNode:
 		contextKey := typedNode.Value
 		contextVal, exists := context[contextKey]
 
@@ -190,7 +190,7 @@ func processUnary(right Result, operator string) (Result, error) {
 
 func getLoopInputContexts(input parser.TreeNode) []Context {
 	switch typedInput := input.(type) {
-	case parser.StringParseNode:
+	case *parser.StringParseNode:
 		store := GetExportStore()
 		// typedInput is a path to content
 		contentPaths := file.GetContentPaths(typedInput.Value)

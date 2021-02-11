@@ -12,21 +12,21 @@ type ForLoopParseNode struct {
 	ParseNode
 }
 
-func (receiver ForLoopParseNode) String() string {
+func (receiver *ForLoopParseNode) String() string {
 	return fmt.Sprintf("%T", receiver)
 }
 
 // GetLoopIdent returns the loop identifier
 // Given for(foo in "bar"), returns IdentParseNode{foo}
-func (receiver ForLoopParseNode) GetLoopIdent() IdentParseNode {
+func (receiver *ForLoopParseNode) GetLoopIdent() *IdentParseNode {
 	// expects children to be {"for", "(", "foo", ...}
 	// where "foo" is the loop ident
-	return receiver.children[2].(IdentParseNode)
+	return receiver.children[2].(*IdentParseNode)
 }
 
 // GetLoopInput returns the loop input
 // Given for(foo in "bar") returns TreeNode{"bar"}
-func (receiver ForLoopParseNode) GetLoopInput() TreeNode {
+func (receiver *ForLoopParseNode) GetLoopInput() TreeNode {
 	// expects children to be {"for", "(", "foo", "in", "bar",...}
 	// where "bar" is the loop input
 	return receiver.children[4]
@@ -39,7 +39,7 @@ func (receiver ForLoopParseNode) GetLoopInput() TreeNode {
 //		some body business
 //		more body business
 // end
-func (receiver ForLoopParseNode) GetLoopBody() []TreeNode {
+func (receiver *ForLoopParseNode) GetLoopBody() []TreeNode {
 	children := receiver.children
 	body := make([]TreeNode, len(children)-7)
 	copy(body, children[6:len(receiver.children)-1])

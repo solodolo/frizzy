@@ -14,15 +14,15 @@ type ParseNode struct {
 	children []TreeNode
 }
 
-func (node ParseNode) String() string {
+func (node *ParseNode) String() string {
 	return ""
 }
 
-func (node ParseNode) GetChildren() []TreeNode {
+func (node *ParseNode) GetChildren() []TreeNode {
 	return node.children
 }
 
-func (node ParseNode) PrintTree() {
+func (node *ParseNode) PrintTree() {
 	treeStrs := genTreeStr(node, 0, true)
 
 	for _, str := range treeStrs {

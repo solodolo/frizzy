@@ -32,7 +32,7 @@ func readAndParseTokens(tokChan chan []lexer.Token, nodeChan chan TreeNode, pars
 			token := tokens[i]
 			// Passthrough tokens can just be sent on
 			if ptToken, ok := token.(lexer.PassthroughToken); ok {
-				node := StringParseNode{Value: ptToken.GetValue()}
+				node := &StringParseNode{Value: ptToken.GetValue()}
 				nodeChan <- node
 				i++
 			} else {
@@ -90,7 +90,7 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 			}
 		} else {
 			// Accept is the only remaining option
-			head := NonTerminalParseNode{}
+			head := &NonTerminalParseNode{}
 			head.children = *nodeStack
 
 			// Send head to channel
@@ -182,19 +182,19 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 	switch tok := token.(type) {
 	case lexer.NumToken:
 		num, _ := strconv.Atoi(tok.Num)
-		node = NumParseNode{Value: num}
+		node = &NumParseNode{Value: num}
 	case lexer.BoolToken:
 		truthy := tok.Value == "true"
-		node = BoolParseNode{Value: truthy}
+		node = &BoolParseNode{Value: truthy}
 	case lexer.IdentToken, lexer.ForToken, lexer.InToken, lexer.IfToken, lexer.ElseIfToken, lexer.ElseToken, lexer.EndToken:
 		ident := tok.GetValue()
-		node = IdentParseNode{Value: ident}
+		node = &IdentParseNode{Value: ident}
 	case lexer.VarToken:
 		varName := tok.Variable
-		node = VarParseNode{Value: varName}
+		node = &VarParseNode{Value: varName}
 	default:
 		str := tok.GetValue()
-		node = StringParseNode{Value: str}
+		node = &StringParseNode{Value: str}
 	}
 
 	return node
@@ -204,17 +204,17 @@ func getNonTerminalNodeForReduction(reduction string, children []TreeNode) TreeN
 	pn := ParseNode{children: children}
 	switch reduction {
 	case "H":
-		return FuncCallParseNode{ParseNode: pn}
+		return &FuncCallParseNode{ParseNode: pn}
 	case "Q":
-		return IfStatementParseNode{ParseNode: pn}
+		return &IfStatementParseNode{ParseNode: pn}
 	case "R":
-		return ForLoopParseNode{ParseNode: pn}
+		return &ForLoopParseNode{ParseNode: pn}
 	case "S":
-		return ElseIfStatementParseNode{ParseNode: pn}
+		return &ElseIfStatementParseNode{ParseNode: pn}
 	case "T":
-		return ElseParseNode{ParseNode: pn}
+		return &ElseParseNode{ParseNode: pn}
 	default:
-		return NonTerminalParseNode{Value: reduction, ParseNode: pn}
+		return &NonTerminalParseNode{Value: reduction, ParseNode: pn}
 	}
 }
 
