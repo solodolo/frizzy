@@ -7,6 +7,7 @@ import (
 type TreeNode interface {
 	GetChildren() []TreeNode
 	PrintTree()
+	SetChildren(children []TreeNode)
 	fmt.Stringer
 }
 
@@ -20,6 +21,10 @@ func (node *ParseNode) String() string {
 
 func (node *ParseNode) GetChildren() []TreeNode {
 	return node.children
+}
+
+func (node *ParseNode) SetChildren(children []TreeNode) {
+	node.children = children
 }
 
 func (node *ParseNode) PrintTree() {
@@ -66,10 +71,12 @@ type NonTerminalParseNode struct {
 	ParseNode
 }
 
+// TODO: Make this a pointer receiver?
 func (node NonTerminalParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
 }
 
+// TODO: Remove these and create node types for each
 func (node NonTerminalParseNode) IsAssignment() bool {
 	return node.Value == "K" && len(node.children) > 1
 }

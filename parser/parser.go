@@ -164,7 +164,8 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 	copy(children, (*nodeStack)[len(*nodeStack)-numToPop:])
 
 	// Create non-terminal
-	node := getNonTerminalNodeForReduction(left, children)
+	node := getNonTerminalNodeForReduction(left)
+	node.SetChildren(children)
 
 	// Actually pop symbols
 	*nodeStack = (*nodeStack)[:len(*nodeStack)-numToPop]
@@ -200,21 +201,20 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 	return node
 }
 
-func getNonTerminalNodeForReduction(reduction string, children []TreeNode) TreeNode {
-	pn := ParseNode{children: children}
+func getNonTerminalNodeForReduction(reduction string) TreeNode {
 	switch reduction {
 	case "H":
-		return &FuncCallParseNode{ParseNode: pn}
+		return &FuncCallParseNode{}
 	case "Q":
-		return &IfStatementParseNode{ParseNode: pn}
+		return &IfStatementParseNode{}
 	case "R":
-		return &ForLoopParseNode{ParseNode: pn}
+		return &ForLoopParseNode{}
 	case "S":
-		return &ElseIfStatementParseNode{ParseNode: pn}
+		return &ElseIfStatementParseNode{}
 	case "T":
-		return &ElseParseNode{ParseNode: pn}
+		return &ElseParseNode{}
 	default:
-		return &NonTerminalParseNode{Value: reduction, ParseNode: pn}
+		return &NonTerminalParseNode{Value: reduction}
 	}
 }
 
