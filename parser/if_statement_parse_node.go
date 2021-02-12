@@ -7,17 +7,6 @@ import "fmt"
 // The children are the elemnts of the if statment including
 // each if/else_if/else block
 //
-// tree structure
-//|-- parser.IfStatementParseNode
-//		|-- parser.IdentParseNode: if
-//		|-- parser.StringParseNode: "("
-//		|-- parser.NonTerminalParseNode: K
-//		|-- parser.StringParseNode: ")"
-//		|-- parser.NonTerminalParseNode: V
-//		|-- parser.ElseIfStatementParseNode
-//		|-- ...
-//		|-- parser.ElseParseNode
-//		|-- parser.IdentParseNode: end
 type IfStatementParseNode struct {
 	ParseNode
 }
