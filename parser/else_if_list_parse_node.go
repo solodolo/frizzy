@@ -17,9 +17,11 @@ func (receiver *ElseIfListParseNode) GetConditionals() []TreeNode {
 	conditionals := make([]TreeNode, numBlockChildren+1)
 
 	current := receiver
-	for i := 0; i < numBlockChildren; i++ {
+	for i := 0; i <= numBlockChildren; i++ {
 		conditionals[i] = current.getConditional()
-		current = current.children[0].(*ElseIfListParseNode)
+		if current.hasBlockChildren() {
+			current = current.children[0].(*ElseIfListParseNode)
+		}
 	}
 
 	return conditionals
