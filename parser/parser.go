@@ -210,9 +210,11 @@ func getNonTerminalNodeForReduction(reduction string) TreeNode {
 	case "R":
 		return &ForLoopParseNode{}
 	case "S":
-		return &ElseIfStatementParseNode{}
+		return &ElseIfConditionalParseNode{}
 	case "T":
 		return &ElseParseNode{}
+	case "X":
+		return &ElseIfListParseNode{}
 	default:
 		return &NonTerminalParseNode{Value: reduction}
 	}
