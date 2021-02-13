@@ -213,6 +213,8 @@ func getNonTerminalNodeForReduction(reduction string) TreeNode {
 		return &ElseIfConditionalParseNode{}
 	case "T":
 		return &ElseParseNode{}
+	case "W":
+		return &IfConditionalParseNode{}
 	case "X":
 		return &ElseIfListParseNode{}
 	default:
