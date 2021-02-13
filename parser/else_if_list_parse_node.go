@@ -20,7 +20,7 @@ func (receiver *ElseIfListParseNode) GetConditionals() []TreeNode {
 	conditionals := make([]TreeNode, len(blocks))
 
 	for i, block := range blocks {
-		conditionals[i] = block.getConditional()
+		conditionals[i] = block.GetConditional()
 	}
 
 	return conditionals
@@ -57,7 +57,8 @@ func (receiver *ElseIfListParseNode) hasBlockChildren() bool {
 	return ok
 }
 
-func (receiver *ElseIfListParseNode) getConditional() TreeNode {
+// GetConditional returns the true/false statement for this else_if
+func (receiver *ElseIfListParseNode) GetConditional() TreeNode {
 	// if there are multiple else_ifs then the first child will be
 	// a type of ElseIfListParseNode
 	// Otherwise it will be else_if(statement)
