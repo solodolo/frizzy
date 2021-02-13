@@ -2,8 +2,11 @@ package parser
 
 import "fmt"
 
+// ElseIfListParseNode represents one or more else_ifs with
+// their conditionals and bodies
 type ElseIfListParseNode struct {
 	ParseNode
+	flattenedBlockChildren []*ElseIfListParseNode
 }
 
 func (receiver *ElseIfListParseNode) String() string {
@@ -13,30 +16,37 @@ func (receiver *ElseIfListParseNode) String() string {
 // GetConditionals returns the true/false statements inside of this
 // and each nested else_if block
 func (receiver *ElseIfListParseNode) GetConditionals() []TreeNode {
-	numBlockChildren := receiver.getNumBlockChildren()
-	conditionals := make([]TreeNode, numBlockChildren+1)
+	blocks := receiver.GetFlattenedBlockChildren()
+	conditionals := make([]TreeNode, len(blocks))
 
-	current := receiver
-	for i := 0; i <= numBlockChildren; i++ {
-		conditionals[i] = current.getConditional()
-		if current.hasBlockChildren() {
-			current = current.children[0].(*ElseIfListParseNode)
-		}
+	for i, block := range blocks {
+		conditionals[i] = block.getConditional()
 	}
 
 	return conditionals
 }
 
-func (receiver *ElseIfListParseNode) getNumBlockChildren() int {
-	count := 0
-	current := receiver
-
-	for current.hasBlockChildren() {
-		count++
-		current = current.children[0].(*ElseIfListParseNode)
+// GetFlattenedBlockChildren returns the ElseIfListParseNode children of
+// this node in a flattened array
+func (receiver *ElseIfListParseNode) GetFlattenedBlockChildren() []*ElseIfListParseNode {
+	if receiver.flattenedBlockChildren == nil {
+		receiver.cacheFlattenedBlockChildren()
 	}
 
-	return count
+	return receiver.flattenedBlockChildren
+}
+
+// cacheFlattenedBlockChildren stores this receiver and any ElseIfListParseNode
+// children in a flat array
+func (receiver *ElseIfListParseNode) cacheFlattenedBlockChildren() {
+	receiver.flattenedBlockChildren = []*ElseIfListParseNode{receiver}
+
+	current := receiver
+	for current.hasBlockChildren() {
+		next := current.children[0].(*ElseIfListParseNode)
+		receiver.flattenedBlockChildren = append(receiver.flattenedBlockChildren, next)
+		current = next
+	}
 }
 
 func (receiver *ElseIfListParseNode) hasBlockChildren() bool {

@@ -2,14 +2,20 @@ package parser
 
 import "fmt"
 
-// ElseIfStatementParseNode represents a parsed else_if statement
-// It should always be the child of an IfStatementParseNode
-// The children represent the elements of the else if statement
-// including the condition and body
+// ElseIfStatementParseNode represents the parent of one or more else_if
+// statements represented by an ElseIfListParseNode
+// This should always be the child of an IfStatementParseNode
+// There should be a single ElseIfListParseNode child node
 type ElseIfStatementParseNode struct {
 	ParseNode
 }
 
-func (receiver ElseIfStatementParseNode) String() string {
+func (receiver *ElseIfStatementParseNode) String() string {
 	return fmt.Sprintf("%T", receiver)
+}
+
+// GetConditionals simply wraps ElseIfListParseNode GetConditionals
+func (receiver *ElseIfStatementParseNode) GetConditionals() []TreeNode {
+	child := receiver.children[0].(*ElseIfListParseNode)
+	return child.GetConditionals()
 }

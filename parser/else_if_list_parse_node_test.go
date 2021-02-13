@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -67,16 +66,6 @@ func TestHasBlockChildrenReturnsFalseWithNoBlockChildren(t *testing.T) {
 	}
 }
 
-func TestGetNumBlockChildrenWithBlockChildrenReturnsCorrectNumber(t *testing.T) {
-	expected := 5
-	node := getNodeWithBlockChildren(expected)
-	got := node.getNumBlockChildren()
-
-	if got != expected {
-		t.Errorf("expected node to count %d children, counted %d", expected, got)
-	}
-}
-
 func TestGetConditionalWithBlockChildrenReturnsCorrectNode(t *testing.T) {
 	node := getNodeWithBlockChildren(3)
 	conditional := node.getConditional()
@@ -110,10 +99,24 @@ func TestGetConditionalsWithBlockChildrenReturnsAllConditionals(t *testing.T) {
 		t.Errorf("expected %d conditionals, got %d", numChildren+1, len(conditionals))
 	} else {
 		for _, conditional := range conditionals {
-			fmt.Println(conditional)
 			if typedConditional, ok := conditional.(*NonTerminalParseNode); !ok || typedConditional.Value != "K" {
 				t.Errorf("expected NonTerminalParseNode with value K, got %T", conditional)
 			}
+		}
+	}
+}
+
+func TestGetConditionalsWithoutBlockChildrenReturnsAllConditionals(t *testing.T) {
+	expected := 1
+	node := getNodeWithoutBlockChildren(4)
+	conditionals := node.GetConditionals()
+
+	if len(conditionals) != expected {
+		t.Errorf("expected %d conditionals, got %d", expected, len(conditionals))
+	} else {
+		typedConditional := conditionals[0].(*NonTerminalParseNode)
+		if typedConditional.Value != "K" {
+			t.Errorf("expected NonTerminalParseNode with value K, got %T", conditionals[0])
 		}
 	}
 }
