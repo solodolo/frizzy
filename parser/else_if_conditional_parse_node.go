@@ -11,7 +11,7 @@ type ElseIfConditionalParseNode struct {
 }
 
 func (receiver *ElseIfConditionalParseNode) String() string {
-	return fmt.Sprintf("%T", receiver)
+	return fmt.Sprintf("%T", *receiver)
 }
 
 // GetConditionals simply wraps ElseIfListParseNode GetConditionals
