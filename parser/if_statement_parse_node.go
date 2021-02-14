@@ -26,9 +26,9 @@ func (receiver *IfStatementParseNode) getIfConditional() *IfConditionalParseNode
 }
 
 // GetIfConditional returns the child if statement conditional
-func (receiver *IfStatementParseNode) GetIfConditional() BoolParseNode {
+func (receiver *IfStatementParseNode) GetIfConditional() TreeNode {
 	ifConditional := receiver.getIfConditional()
-	return *ifConditional.GetConditional().(*BoolParseNode)
+	return ifConditional.GetConditional()
 }
 
 // GetIfBody returns the body of this node's if statement
@@ -45,12 +45,12 @@ func (receiver *IfStatementParseNode) getElseIfConditional() (*ElseIfConditional
 // GetElseIfConditionals returns an array of conditional nodes from each
 // of this node's else_if children
 // Return value may be empty
-func (receiver *IfStatementParseNode) GetElseIfConditionals() []BoolParseNode {
-	conditionals := []BoolParseNode{}
+func (receiver *IfStatementParseNode) GetElseIfConditionals() []TreeNode {
+	conditionals := []TreeNode{}
 
 	if elseIfConditional, ok := receiver.getElseIfConditional(); ok {
 		for _, conditional := range elseIfConditional.GetConditionals() {
-			conditionals = append(conditionals, *conditional.(*BoolParseNode))
+			conditionals = append(conditionals, conditional)
 		}
 	}
 	return conditionals

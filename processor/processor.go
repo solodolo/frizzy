@@ -74,26 +74,29 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 
 		return StringResult(bodyText)
 	case *parser.IfStatementParseNode:
-		ifCondition := typedNode.GetIfConditional()
+		ifCondition := processHeadNode(typedNode.GetIfConditional(), context).(BoolResult)
 		// check if first
-		if ifCondition.Value {
-			ifBody := typedNode.GetIfBody()
+		if bool(ifCondition) {
+			ifBody := processHeadNode(typedNode.GetIfBody(), context)
 			return StringResult(ifBody.String())
 		}
 
 		// check any else_ifs
 		elseIfConditions := typedNode.GetElseIfConditionals()
-		for i, condition := range elseIfConditions {
-			if condition.Value {
+		for i, elseCondition := range elseIfConditions {
+			condition := processHeadNode(elseCondition, context).(BoolResult)
+			if bool(condition) {
 				if elseIfBody, ok := typedNode.GetElseIfBody(i); ok {
-					return StringResult(elseIfBody.String())
+					body := processHeadNode(elseIfBody, context)
+					return StringResult(body.String())
 				}
 			}
 		}
 
 		// finally try for the else
 		if elseBody, ok := typedNode.GetElseBody(); ok {
-			return StringResult(elseBody.String())
+			body := processHeadNode(elseBody, context)
+			return StringResult(body.String())
 		}
 
 		// nothing is true
