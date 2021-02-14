@@ -68,7 +68,7 @@ func TestHasBlockChildrenReturnsFalseWithNoBlockChildren(t *testing.T) {
 
 func TestGetConditionalWithBlockChildrenReturnsCorrectNode(t *testing.T) {
 	node := getNodeWithBlockChildren(3)
-	conditional := node.getConditional()
+	conditional := node.GetConditional()
 	typedConditional, ok := conditional.(*NonTerminalParseNode)
 
 	if !ok {
@@ -80,7 +80,7 @@ func TestGetConditionalWithBlockChildrenReturnsCorrectNode(t *testing.T) {
 
 func TestGetConditionalWithoutBlockChildrenReturnsCorrectNode(t *testing.T) {
 	node := getNodeWithoutBlockChildren(3)
-	conditional := node.getConditional()
+	conditional := node.GetConditional()
 	typedConditional, ok := conditional.(*NonTerminalParseNode)
 
 	if !ok {
