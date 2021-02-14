@@ -17,3 +17,8 @@ func (receiver *IfConditionalParseNode) String() string {
 func (receiver *IfConditionalParseNode) GetConditional() TreeNode {
 	return receiver.children[2]
 }
+
+// GetBody returns the nodes that make up this if conditions body
+func (receiver *IfConditionalParseNode) GetBody() TreeNode {
+	return receiver.children[4]
+}
