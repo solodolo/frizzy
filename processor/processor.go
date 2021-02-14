@@ -73,6 +73,32 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 		}
 
 		return StringResult(bodyText)
+	case *parser.IfStatementParseNode:
+		ifCondition := typedNode.GetIfConditional()
+		// check if first
+		if ifCondition.Value {
+			ifBody := typedNode.GetIfBody()
+			return StringResult(ifBody.String())
+		}
+
+		// check any else_ifs
+		elseIfConditions := typedNode.GetElseIfConditionals()
+		for i, condition := range elseIfConditions {
+			if condition.Value {
+				if elseIfBody, ok := typedNode.GetElseIfBody(i); ok {
+					return StringResult(elseIfBody.String())
+				}
+			}
+		}
+
+		// finally try for the else
+		if elseBody, ok := typedNode.GetElseBody(); ok {
+			return StringResult(elseBody.String())
+		}
+
+		// nothing is true
+		return StringResult("")
+
 	case *parser.StringParseNode:
 		return StringResult(typedNode.Value)
 	case *parser.NumParseNode:
