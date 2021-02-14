@@ -10,8 +10,8 @@ type ElseParseNode struct {
 	ParseNode
 }
 
-func (receiver ElseParseNode) String() string {
-	return fmt.Sprintf("%T", receiver)
+func (receiver *ElseParseNode) String() string {
+	return fmt.Sprintf("%T", *receiver)
 }
 
 // GetBody returns the body of this else
