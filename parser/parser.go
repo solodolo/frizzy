@@ -205,6 +205,10 @@ func getNonTerminalNodeForReduction(reduction string) TreeNode {
 	switch reduction {
 	case "H":
 		return &FuncCallParseNode{}
+	case "I":
+		return &ArgsParseNode{}
+	case "J":
+		return &ArgsListParseNode{}
 	case "Q":
 		return &IfStatementParseNode{}
 	case "R":
