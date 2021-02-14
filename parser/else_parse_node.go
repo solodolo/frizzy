@@ -13,3 +13,10 @@ type ElseParseNode struct {
 func (receiver ElseParseNode) String() string {
 	return fmt.Sprintf("%T", receiver)
 }
+
+// GetBody returns the body of this else
+// Body node should always exist but might not have any children
+// if the else section is empty
+func (receiver *ElseParseNode) GetBody() TreeNode {
+	return receiver.children[1]
+}
