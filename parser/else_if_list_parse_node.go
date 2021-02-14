@@ -69,3 +69,8 @@ func (receiver *ElseIfListParseNode) GetConditional() TreeNode {
 
 	return receiver.children[2+offset]
 }
+
+// GetBody returns the body of this else_if
+func (receiver *ElseIfListParseNode) GetBody() TreeNode {
+	return receiver.children[4]
+}
