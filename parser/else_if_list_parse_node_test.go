@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func getNodeWithBlockChildren(count int) ElseIfListParseNode {
-	node := ElseIfListParseNode{}
-	current := &node
+func getNodeWithBlockChildren(count int) *ElseIfListParseNode {
+	node := &ElseIfListParseNode{}
+	current := node
 
 	for i := 0; i < count; i++ {
 		next := &ElseIfListParseNode{}
@@ -33,9 +33,9 @@ func getNodeWithBlockChildren(count int) ElseIfListParseNode {
 	return node
 }
 
-func getNodeWithoutBlockChildren(count int) ElseIfListParseNode {
-	node := ElseIfListParseNode{}
-	var current TreeNode = &node
+func getNodeWithoutBlockChildren(count int) *ElseIfListParseNode {
+	node := &ElseIfListParseNode{}
+	var current TreeNode = node
 
 	for i := 0; i < count; i++ {
 		next := &IdentParseNode{Value: "else_if"}
@@ -117,6 +117,28 @@ func TestGetConditionalsWithoutBlockChildrenReturnsAllConditionals(t *testing.T)
 		typedConditional := conditionals[0].(*NonTerminalParseNode)
 		if typedConditional.Value != "K" {
 			t.Errorf("expected NonTerminalParseNode with value K, got %T", conditionals[0])
+		}
+	}
+}
+
+// bottom child should be first in flattened
+// and head node should be last in flattened
+func TestFlattenedChildrenAreCorrectlyOrdered(t *testing.T) {
+	numChildren := 3
+	node := getNodeWithBlockChildren(numChildren)
+	flattened := node.GetFlattenedBlockChildren()
+
+	if flattened[len(flattened)-1] != node {
+		t.Errorf("expected last flattened else_if to be %p, got %p", node, flattened[len(flattened)-1])
+	} else {
+		// get last child
+		current := node
+		for i := 0; i < numChildren; i++ {
+			current = current.children[0].(*ElseIfListParseNode)
+		}
+
+		if flattened[0] != current {
+			t.Errorf("expected first flattened else_if to be %p, got %p ", current, flattened[0])
 		}
 	}
 }

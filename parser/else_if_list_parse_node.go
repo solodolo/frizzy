@@ -44,7 +44,8 @@ func (receiver *ElseIfListParseNode) cacheFlattenedBlockChildren() {
 	current := receiver
 	for current.hasBlockChildren() {
 		next := current.children[0].(*ElseIfListParseNode)
-		receiver.flattenedBlockChildren = append(receiver.flattenedBlockChildren, next)
+		// bottom child is first else_if so prepend
+		receiver.flattenedBlockChildren = append([]*ElseIfListParseNode{next}, receiver.flattenedBlockChildren...)
 		current = next
 	}
 }
