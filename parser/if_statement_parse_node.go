@@ -31,8 +31,8 @@ func (receiver *IfStatementParseNode) GetIfConditional() BoolParseNode {
 	return *ifConditional.GetConditional().(*BoolParseNode)
 }
 
-// GetIfConditionalBody returns the body of this node's if statement
-func (receiver *IfStatementParseNode) GetIfConditionalBody() TreeNode {
+// GetIfBody returns the body of this node's if statement
+func (receiver *IfStatementParseNode) GetIfBody() TreeNode {
 	ifConditional := receiver.getIfConditional()
 	return ifConditional.GetBody()
 }
