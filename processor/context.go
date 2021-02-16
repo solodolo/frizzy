@@ -1,20 +1,25 @@
 package processor
 
-// Holds either a Result or another
+// ContextNode hosts either a Result or another
 // Context level
 type ContextNode struct {
 	result Result
 	child  *Context
 }
 
+// HasResult returns true if this node contains a result
 func (receiver ContextNode) HasResult() bool {
 	return receiver.result != nil
 }
 
+// HasContext returns true if this node contains a
+// nested context
 func (receiver ContextNode) HasContext() bool {
 	return receiver.child != nil
 }
 
+// At returns the ContextNode stored under key or false
+// if key does not exist
 func (receiver ContextNode) At(key string) (ContextNode, bool) {
 	if receiver.HasContext() {
 		val, ok := (*receiver.child)[key]
@@ -35,6 +40,8 @@ func (receiver *Context) Merge(other *Context) {
 	}
 }
 
+// At returns the ContextNode stored under key or false
+// if key does not exist
 func (receiver *Context) At(key string) (ContextNode, bool) {
 	val, ok := (*receiver)[key]
 	return val, ok
