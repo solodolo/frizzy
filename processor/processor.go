@@ -7,10 +7,9 @@ import (
 	"mettlach.codes/frizzy/parser"
 )
 
-func Process(nodeChan <-chan parser.TreeNode) {
-	var globalContext Context
+func Process(nodeChan <-chan parser.TreeNode, context Context) {
 	for node := range nodeChan {
-		processHeadNode(node, globalContext)
+		processHeadNode(node, context)
 	}
 }
 
