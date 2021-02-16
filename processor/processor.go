@@ -24,7 +24,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 			left, right, _ := getBinaryOperatorAndOperands(children, context)
 			varName := left.GetResult().(string)
 
-			context[varName] = right
+			context[varName] = ContextNode{result: right}
 			return nil
 		} else if typedNode.IsAddition() {
 			addResult, err := processAddition(getBinaryOperatorAndOperands(children, context))
@@ -115,7 +115,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 			panic(fmt.Sprintf("variable %q not defined", contextKey))
 		}
 
-		return contextVal
+		return contextVal.result
 	}
 	//
 	// send context down recursively to each child
