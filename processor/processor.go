@@ -2,18 +2,20 @@ package processor
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
 	"mettlach.codes/frizzy/file"
 	"mettlach.codes/frizzy/parser"
 )
 
-func Process(nodeChan <-chan parser.TreeNode, context Context) {
+func Process(nodeChan <-chan parser.TreeNode, context *Context) {
 	for node := range nodeChan {
 		processHeadNode(node, context)
 	}
 }
 
-func processHeadNode(head parser.TreeNode, context Context) Result {
+func processHeadNode(head parser.TreeNode, context *Context) Result {
 	// if head is an assignment
 	//	add to context
 	switch typedNode := head.(type) {
@@ -24,7 +26,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 			left, right, _ := getBinaryOperatorAndOperands(children, context)
 			varName := left.GetResult().(string)
 
-			context[varName] = ContextNode{result: right}
+			(*context)[varName] = ContextNode{result: right}
 			return nil
 		} else if typedNode.IsAddition() {
 			addResult, err := processAddition(getBinaryOperatorAndOperands(children, context))
@@ -65,9 +67,9 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 		bodyText := ""
 
 		for _, inputContext := range inputContexts {
-			inputContext.Merge(&context)
+			inputContext.Merge(context)
 			for i := range loopBody {
-				bodyText += processHeadNode(loopBody[i], inputContext).String() + "\n"
+				bodyText += processHeadNode(loopBody[i], &inputContext).String() + "\n"
 			}
 		}
 
@@ -109,13 +111,27 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 		return BoolResult(typedNode.Value)
 	case *parser.VarParseNode:
 		contextKey := typedNode.Value
-		contextVal, exists := context[contextKey]
+		keys := strings.Split(contextKey, ".")
 
-		if !exists {
-			panic(fmt.Sprintf("variable %q not defined", contextKey))
+		// loop through each key and recursively look up the next level
+		current := ContextNode{child: context}
+		for _, key := range keys {
+			contextNode, exists := current.At(key)
+
+			if !exists {
+				log.Fatalf("key %q not found in context", contextKey)
+			}
+
+			current = contextNode
 		}
 
-		return contextVal.result
+		// current is the last context node so we can
+		// return its result or its further nested context
+		if current.HasResult() {
+			return current.result
+		}
+
+		return ContainerResult{current.child}
 	}
 	//
 	// send context down recursively to each child
@@ -150,7 +166,7 @@ func processHeadNode(head parser.TreeNode, context Context) Result {
 
 // Returns the operator and operands of the binary operation represented in ops
 // e.g. given 5 + 4, ops = []parser.TreeNode{5, '+', 4}
-func getBinaryOperatorAndOperands(ops []parser.TreeNode, context Context) (Result, Result, string) {
+func getBinaryOperatorAndOperands(ops []parser.TreeNode, context *Context) (Result, Result, string) {
 	left := processHeadNode(ops[0], context)
 	operator := processHeadNode(ops[1], context).(StringResult)
 	right := processHeadNode(ops[len(ops)-1], context)
@@ -160,7 +176,7 @@ func getBinaryOperatorAndOperands(ops []parser.TreeNode, context Context) (Resul
 
 // Returns the operator and operand of the unary operation in ops
 // e.g. given !false, ops = []parser.TreeNode{"!", false}
-func getUnaryOperatorAndOperand(ops []parser.TreeNode, context Context) (Result, string) {
+func getUnaryOperatorAndOperand(ops []parser.TreeNode, context *Context) (Result, string) {
 	operator := processHeadNode(ops[0], context).(StringResult)
 	right := processHeadNode(ops[len(ops)-1], context)
 
