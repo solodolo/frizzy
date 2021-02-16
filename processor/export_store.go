@@ -31,9 +31,10 @@ func GetExportStore() *ExportStore {
 // represented by filename
 func (receiver *ExportStore) Insert(filename, key string, value Result) {
 	if _, ok := receiver.exports[filename]; ok {
-		receiver.exports[filename][key] = value
+		receiver.exports[filename][key] = ContextNode{result: value}
 	} else {
-		receiver.exports[filename] = Context{key: value}
+		val := ContextNode{result: value}
+		receiver.exports[filename] = Context{key: val}
 	}
 }
 
