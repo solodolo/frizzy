@@ -9,7 +9,7 @@ import (
 
 // ExportStore is a singleton to read and write export vars
 type ExportStore struct {
-	exports map[string]Context
+	exports map[string]*Context
 }
 
 var once sync.Once
@@ -31,14 +31,15 @@ func GetExportStore() *ExportStore {
 // represented by filename
 func (receiver *ExportStore) Insert(filename, key string, value Result) {
 	if _, ok := receiver.exports[filename]; ok {
-		receiver.exports[filename][key] = ContextNode{result: value}
+		context := receiver.exports[filename]
+		(*context)[key] = ContextNode{result: value}
 	} else {
 		val := ContextNode{result: value}
-		receiver.exports[filename] = Context{key: val}
+		receiver.exports[filename] = &Context{key: val}
 	}
 }
 
 // Get returns the export context of the given filename
-func (receiver *ExportStore) Get(filename string) Context {
+func (receiver *ExportStore) Get(filename string) *Context {
 	return receiver.exports[filename]
 }
