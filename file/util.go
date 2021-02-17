@@ -7,6 +7,8 @@ import (
 	"mettlach.codes/frizzy/config"
 )
 
+// GetContentPaths returns an array of paths to each file
+// in the project's <contentroot>/<subpath> directory
 func GetContentPaths(subpath string) []string {
 	contentDirs := []string{}
 	// assumes GetContentPath returns an absolute path
