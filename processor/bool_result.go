@@ -19,6 +19,8 @@ func (receiver BoolResult) String() string {
 
 func convertToBool(result Result) (bool, bool) {
 	switch typedResult := result.(type) {
+	case BoolResult:
+		return bool(typedResult), true
 	case StringResult:
 		if typedResult == "true" {
 			return true, true
@@ -33,18 +35,6 @@ func convertToBool(result Result) (bool, bool) {
 	}
 }
 
-// LessThan checks if the provided result is logically less than
-// the receiver
-func (receiver BoolResult) LessThan(right Result) (Result, error) {
-	return nil, fmt.Errorf("Cannot determine %T < %T", receiver, right)
-}
-
-// GreaterThan checks if the provided result is logically greater than
-// the receiver
-func (receiver BoolResult) GreaterThan(right Result) (Result, error) {
-	return nil, fmt.Errorf("Cannot determine %T > %T", receiver, right)
-}
-
 // EqualTo checks if the provided result is logically equal to
 // the receiver
 func (receiver BoolResult) EqualTo(right Result) (Result, error) {
@@ -54,16 +44,29 @@ func (receiver BoolResult) EqualTo(right Result) (Result, error) {
 	return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
 }
 
-// LessThanEqual checks if the provided result is logically less than or equal to
+// NotEqualTo checks if the provided result is logically equal to
 // the receiver
-func (receiver BoolResult) LessThanEqual(right Result) (Result, error) {
-	return nil, fmt.Errorf("Cannot determine %T <= %T", receiver, right)
+func (receiver BoolResult) NotEqualTo(right Result) (Result, error) {
+	if rightInt, ok := convertToBool(right); ok {
+		return BoolResult(bool(receiver) != rightInt), nil
+	}
+	return nil, fmt.Errorf("Cannot determine %T != %T", receiver, right)
 }
 
-// GreaterThanEqual checks if the provided result is logically greater than or equal to
-// the receiver
-func (receiver BoolResult) GreaterThanEqual(right Result) (Result, error) {
-	return nil, fmt.Errorf("Cannot determine %T >= %T", receiver, right)
+// LogicalAnd determines if left and right are both logically true
+func (receiver BoolResult) LogicalAnd(right Result) (Result, error) {
+	if rightInt, ok := convertToBool(right); ok {
+		return BoolResult(bool(receiver) && rightInt), nil
+	}
+	return nil, fmt.Errorf("Cannot determine %T && %T", receiver, right)
+}
+
+// LogicalOr determines if left and right are both logically true
+func (receiver BoolResult) LogicalOr(right Result) (Result, error) {
+	if rightInt, ok := convertToBool(right); ok {
+		return BoolResult(bool(receiver) || rightInt), nil
+	}
+	return nil, fmt.Errorf("Cannot determine %T || %T", receiver, right)
 }
 
 // Not returns the inverse of the receiver
