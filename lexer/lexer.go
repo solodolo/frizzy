@@ -244,7 +244,14 @@ func getLineTokens(line string, lineNum int) []Token {
 		} else if loc := addOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
-			token := AddOpToken{Operator: operator, TokenData: tokData}
+
+			lastTok := tokens[len(tokens)-1]
+			var token Token
+			if _, ok := lastTok.(NumToken); !ok && operator == "-" {
+				token = UnaryOpToken{Operator: operator, TokenData: tokData}
+			} else {
+				token = AddOpToken{Operator: operator, TokenData: tokData}
+			}
 			tokens = append(tokens, token)
 		} else if loc := relOp.FindStringIndex(line); loc != nil {
 			operator, remaining := extractToken(loc, line)
