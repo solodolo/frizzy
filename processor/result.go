@@ -30,6 +30,10 @@ type LogicalResult interface {
 	GreaterThanEqual(right Result) (Result, error)
 }
 
-type UnaryResult interface {
+type NotResult interface {
 	Not() (Result, error)
+}
+
+type NegativeResult interface {
+	Negative() (Result, error)
 }

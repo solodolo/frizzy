@@ -124,3 +124,8 @@ func (receiver IntResult) GreaterThanEqual(right Result) (Result, error) {
 	}
 	return nil, fmt.Errorf("Cannot determine %T >= %T", receiver, right)
 }
+
+// Negative switches the sign of this number
+func (receiver IntResult) Negative() (Result, error) {
+	return IntResult(-int(receiver)), nil
+}
