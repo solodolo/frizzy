@@ -22,12 +22,21 @@ type MultipliableResult interface {
 	Divide(right Result) (Result, error)
 }
 
-type LogicalResult interface {
+type EqualityResult interface {
+	EqualTo(right Result) (Result, error)
+	NotEqualTo(right Result) (Result, error)
+}
+
+type RelResult interface {
 	LessThan(right Result) (Result, error)
 	GreaterThan(right Result) (Result, error)
-	EqualTo(right Result) (Result, error)
 	LessThanEqual(right Result) (Result, error)
 	GreaterThanEqual(right Result) (Result, error)
+}
+
+type LogicalResult interface {
+	LogicalAnd(right Result) (Result, error)
+	LogicalOr(right Result) (Result, error)
 }
 
 type NotResult interface {
