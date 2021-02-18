@@ -14,6 +14,7 @@ func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan erro
 
 	parseErrChan := make(chan error)
 	go readAndParseTokens(tokChan, nodeChan, parseErrChan)
+	// TODO: This doesn't look right
 	errChan <- <-parseErrChan
 }
 
@@ -193,6 +194,9 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 	case lexer.VarToken:
 		varName := tok.Variable
 		node = &VarParseNode{Value: varName}
+	case lexer.BlockToken:
+		block := tok.GetValue()
+		node = &BlockParseNode{Value: block}
 	default:
 		str := tok.GetValue()
 		node = &StringParseNode{Value: str}
