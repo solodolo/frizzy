@@ -37,6 +37,26 @@ func convertToString(result Result) (string, bool) {
 	}
 }
 
+// EqualTo checks if the provided result is logically equal to
+// the receiver
+func (receiver StringResult) EqualTo(right Result) (Result, error) {
+	if rightStr, ok := convertToString(right); ok {
+		return BoolResult(string(receiver) == rightStr), nil
+	}
+
+	return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
+}
+
+// NotEqualTo checks if the provided result is logically not equal
+// to the receiver
+func (receiver StringResult) NotEqualTo(right Result) (Result, error) {
+	if rightStr, ok := convertToString(right); ok {
+		return BoolResult(string(receiver) != rightStr), nil
+	}
+
+	return nil, fmt.Errorf("Cannot determine %T != %T", receiver, right)
+}
+
 // LessThan checks if the provided result is logically less than
 // the receiver
 func (receiver StringResult) LessThan(right Result) (Result, error) {
@@ -55,16 +75,6 @@ func (receiver StringResult) GreaterThan(right Result) (Result, error) {
 	}
 
 	return nil, fmt.Errorf("Cannot determine %T > %T", receiver, right)
-}
-
-// EqualTo checks if the provided result is logically equal to
-// the receiver
-func (receiver StringResult) EqualTo(right Result) (Result, error) {
-	if rightStr, ok := convertToString(right); ok {
-		return BoolResult(string(receiver) == rightStr), nil
-	}
-
-	return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
 }
 
 // LessThanEqual checks if the provided result is logically less than or equal to

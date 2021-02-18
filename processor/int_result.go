@@ -80,6 +80,24 @@ func convertToInt(right Result) (int, bool) {
 	}
 }
 
+// EqualTo checks if the provided result is logically equal to
+// the receiver
+func (receiver IntResult) EqualTo(right Result) (Result, error) {
+	if rightInt, ok := convertToInt(right); ok {
+		return BoolResult(int(receiver) == rightInt), nil
+	}
+	return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
+}
+
+// NotEqualTo checks if the provided result is logically not equal
+// to the receiver
+func (receiver IntResult) NotEqualTo(right Result) (Result, error) {
+	if rightInt, ok := convertToInt(right); ok {
+		return BoolResult(int(receiver) != rightInt), nil
+	}
+	return nil, fmt.Errorf("Cannot determine %T != %T", receiver, right)
+}
+
 // LessThan checks if the provided result is logically less than
 // the receiver
 func (receiver IntResult) LessThan(right Result) (Result, error) {
@@ -96,15 +114,6 @@ func (receiver IntResult) GreaterThan(right Result) (Result, error) {
 		return BoolResult(int(receiver) > rightInt), nil
 	}
 	return nil, fmt.Errorf("Cannot determine %T > %T", receiver, right)
-}
-
-// EqualTo checks if the provided result is logically equal to
-// the receiver
-func (receiver IntResult) EqualTo(right Result) (Result, error) {
-	if rightInt, ok := convertToInt(right); ok {
-		return BoolResult(int(receiver) == rightInt), nil
-	}
-	return nil, fmt.Errorf("Cannot determine %T == %T", receiver, right)
 }
 
 // LessThanEqual checks if the provided result is logically less than or equal to
