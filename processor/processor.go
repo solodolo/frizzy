@@ -9,9 +9,13 @@ import (
 	"mettlach.codes/frizzy/parser"
 )
 
-func Process(nodeChan <-chan parser.TreeNode, context *Context) {
+// Process reads each node from nodeChan and walks through its tree
+// turning parse nodes into output
+func Process(nodeChan <-chan parser.TreeNode, resultChan chan<- Result, context *Context) {
+	defer close(resultChan)
+
 	for node := range nodeChan {
-		processHeadNode(node, context)
+		resultChan <- processHeadNode(node, context)
 	}
 }
 
@@ -58,18 +62,29 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 			}
 
 			return unaryResult
+		} else {
+			// TODO: This smells bad
+			if len(children) == 1 {
+				return processHeadNode(children[0], context)
+			}
+			ret := ""
+			for _, child := range children {
+				ret += processHeadNode(child, context).String()
+			}
+			return StringResult(ret)
 		}
 	case *parser.ForLoopParseNode:
-		input := typedNode.GetLoopInput()
-		inputContexts := getLoopInputContexts(input)
+		inputResult := processHeadNode(typedNode.GetLoopInput(), context)
+		inputContexts := getLoopInputContexts(&inputResult)
 		loopBody := typedNode.GetLoopBody()
 
 		bodyText := ""
 
+		// TODO: is this loop needed or is the body a single node?
 		for _, inputContext := range inputContexts {
 			inputContext.Merge(context)
 			for i := range loopBody {
-				bodyText += processHeadNode(loopBody[i], &inputContext).String() + "\n"
+				bodyText += processHeadNode(loopBody[i], inputContext).String() + "\n"
 			}
 		}
 
@@ -102,6 +117,23 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 
 		// nothing is true
 		return StringResult("")
+	case *parser.FuncCallParseNode:
+		funcName := typedNode.GetFuncName()
+		args := typedNode.GetArgs()
+		processedArgs := []Result{}
+
+		for _, arg := range args {
+			processedArgs = append(processedArgs, processHeadNode(arg, context))
+		}
+
+		switch funcName {
+		case "print":
+			return Print(processedArgs[0])
+		case "Paginate":
+			return Paginate(processedArgs[0], processedArgs[1], processedArgs[2])
+		default:
+			log.Fatalf("call to undefined function %q", funcName)
+		}
 
 	case *parser.StringParseNode:
 		return StringResult(typedNode.Value)
@@ -132,6 +164,8 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 		}
 
 		return ContainerResult{current.child}
+	default:
+		return StringResult("")
 	}
 	//
 	// send context down recursively to each child
@@ -224,28 +258,43 @@ func processLogic(left, right Result, operator string) (Result, error) {
 }
 
 func processUnary(right Result, operator string) (Result, error) {
-	rightOp := right.(UnaryResult)
+
 	if operator == "!" {
+		rightOp := right.(NotResult)
 		return rightOp.Not()
+	} else if operator == "-" {
+		rightOp := right.(NegativeResult)
+		return rightOp.Negative()
 	}
 
 	return nil, fmt.Errorf("Invalid unary operator %q", operator)
 }
 
-func getLoopInputContexts(input parser.TreeNode) []Context {
-	switch typedInput := input.(type) {
-	case *parser.StringParseNode:
-		store := GetExportStore()
-		// typedInput is a path to content
-		contentPaths := file.GetContentPaths(typedInput.Value)
-		ret := make([]Context, len(contentPaths))
+// returns the contexts of each file in contextPath dir
+func getLoopContentContexts(contextPath string) []*Context {
+	store := GetExportStore()
+	// typedInput is a path to content
+	contentPaths := file.GetContentPaths(contextPath)
+	ret := make([]*Context, len(contentPaths))
 
-		// iterate through dir in content dir
-		for i, path := range contentPaths {
-			ret[i] = store.Get(path)
-		}
-		return ret
-		// return array of export store context for each file
+	// iterate through dir in content dir
+	for i, path := range contentPaths {
+		ret[i] = store.Get(path)
+	}
+	return ret
+	// return array of export store context for each file
+}
+
+// getLoopInputContexts returns an array of contexts that should
+// be sent on each iteration of a for loop
+func getLoopInputContexts(input *Result) []*Context {
+	switch typedInput := (*input).(type) {
+	case *StringResult:
+		// return a context for each file in the path
+		return getLoopContentContexts(string(*typedInput))
+	case *ContainerResult:
+		// return a context
+		return []*Context{typedInput.context}
 	default:
 		return nil
 	}

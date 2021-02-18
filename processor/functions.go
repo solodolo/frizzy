@@ -12,13 +12,17 @@ func Print(result Result) StringResult {
 	return StringResult(result.String())
 }
 
-func Paginate(filePath, templatePath StringResult, numPerPage int) StringResult {
-	contentPaths := file.GetContentPaths(string(filePath))
-	numPages := math.Ceil(float64(len(contentPaths)) / float64(numPerPage))
-	paginationContexts := buildPaginationContexts(contentPaths, int(numPages), numPerPage)
+func Paginate(filePath, templatePath, numPerPage Result) StringResult {
+	filePathString := string(filePath.(StringResult))
+	templatePathString := string(templatePath.(StringResult))
+	numPerPageInt := int(numPerPage.(IntResult))
+
+	contentPaths := file.GetContentPaths(filePathString)
+	numPages := math.Ceil(float64(len(contentPaths)) / float64(numPerPageInt))
+	paginationContexts := buildPaginationContexts(contentPaths, int(numPages), numPerPageInt)
 
 	templateCache := parser.GetTemplateCache()
-	templateNodes := templateCache.Get(string(templatePath))
+	templateNodes := templateCache.Get(templatePathString)
 	for _, paginationContext := range paginationContexts {
 		nodeChan := make(chan parser.TreeNode)
 		go func(nodeChan chan parser.TreeNode, templateNodes *[]parser.TreeNode) {
@@ -27,7 +31,8 @@ func Paginate(filePath, templatePath StringResult, numPerPage int) StringResult 
 			}
 		}(nodeChan, templateNodes)
 
-		Process(nodeChan, paginationContext)
+		resultChan := make(chan Result)
+		go Process(nodeChan, resultChan, paginationContext)
 	}
 	return StringResult("")
 }
