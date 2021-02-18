@@ -1,6 +1,8 @@
 package processor
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"testing"
 
@@ -212,17 +214,404 @@ func TestNegationOfFalseBoolReturnsTrue(t *testing.T) {
 }
 
 func TestLTOfTwoNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
-		lexer.NumToken{Num: "6"},
-		lexer.RelOpToken{Operator: "<"},
-		lexer.NumToken{Num: "7"},
-	})
+	nums := [][]int{
+		{6, 7},
+		{100, 2},
+		{42, 42},
+	}
 
-	resultChan := runProcess(head)
-	result := <-resultChan
+	for _, test := range nums {
+		expected := test[0] < test[1]
 
-	if result.String() != "true" {
-		t.Errorf("expected result to be true, got %s", result.String())
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: "<"},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+func TestLTEOfTwoNumbersReturnsCorrectResult(t *testing.T) {
+	nums := [][]int{
+		{983, 456},
+		{3520, 9874},
+		{42, 42},
+	}
+
+	for _, test := range nums {
+		expected := test[0] <= test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: "<="},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestGTOfTwoNumbersReturnsCorrectResult(t *testing.T) {
+	nums := [][]int{
+		{1021, 6789},
+		{38, 19},
+		{42, 42},
+	}
+
+	for _, test := range nums {
+		expected := test[0] > test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: ">"},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestGTEOfTwoNumbersReturnsCorrectResult(t *testing.T) {
+	nums := [][]int{
+		{math.MinInt64, math.MaxInt64},
+		{1209934, 19},
+		{42, 42},
+	}
+
+	for _, test := range nums {
+		expected := test[0] >= test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: ">="},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestEqOfTwoNumbersReturnsCorrectResult(t *testing.T) {
+	nums := [][]int{
+		{123, 321},
+		{897012, 5243},
+		{42, 42},
+	}
+
+	for _, test := range nums {
+		expected := test[0] == test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: "=="},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestNotEqOfTwoNumbersReturnsCorrectResult(t *testing.T) {
+	nums := [][]int{
+		{783, 65847},
+		{28796, 543},
+		{42, 42},
+	}
+
+	for _, test := range nums {
+		expected := test[0] != test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.NumToken{Num: strconv.Itoa(test[0])},
+			lexer.RelOpToken{Operator: "!="},
+			lexer.NumToken{Num: strconv.Itoa(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestLTOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] < test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: "<"},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestLTEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] <= test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: "<="},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestGTOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] > test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: ">"},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestGTEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "\u21E7bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] >= test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: ">="},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+		{"\u2366", "\u2366"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] == test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: "=="},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestNotEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
+	strs := [][]string{
+		{"foo", "bar"},
+		{"baz", "Baz"},
+		{"fizzbuzz", "fizzbuzz"},
+	}
+
+	for _, test := range strs {
+		expected := test[0] != test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.StrToken{Str: test[0]},
+			lexer.RelOpToken{Operator: "!="},
+			lexer.StrToken{Str: test[1]},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestEqOfTwoBoolsReturnsCorrectResult(t *testing.T) {
+	bools := [][]bool{
+		{true, true},
+		{true, false},
+		{false, true},
+		{false, false},
+	}
+
+	for _, test := range bools {
+		expected := test[0] == test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
+			lexer.RelOpToken{Operator: "=="},
+			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+func TestNotEqOfTwoBoolsReturnsCorrectResult(t *testing.T) {
+	bools := [][]bool{
+		{true, true},
+		{true, false},
+		{false, true},
+		{false, false},
+	}
+
+	for _, test := range bools {
+		expected := test[0] != test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
+			lexer.RelOpToken{Operator: "!="},
+			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+func TestLogicalAndOfTwoBoolsReturnsCorrectResult(t *testing.T) {
+	bools := [][]bool{
+		{true, true},
+		{true, false},
+		{false, true},
+		{false, false},
+	}
+
+	for _, test := range bools {
+		expected := test[0] && test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
+			lexer.LogicOpToken{Operator: "&&"},
+			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
+	}
+}
+
+func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
+	bools := [][]bool{
+		{true, true},
+		{true, false},
+		{false, true},
+		{false, false},
+	}
+
+	for _, test := range bools {
+		expected := test[0] || test[1]
+
+		head := generateTree([]lexer.Token{
+			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
+			lexer.LogicOpToken{Operator: "||"},
+			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
+		})
+
+		resultChan := runProcess(head)
+		result := <-resultChan
+
+		if result.String() != fmt.Sprint(expected) {
+			t.Errorf("expected result to be %s, got %s", fmt.Sprint(expected), result)
+		}
 	}
 }
 
