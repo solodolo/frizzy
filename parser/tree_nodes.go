@@ -76,7 +76,7 @@ func (node NonTerminalParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
 }
 
-// TODO: Remove these and create node types for each
+// TODO: Remove these IsFoo() checks and create node types for each
 func (node NonTerminalParseNode) IsAssignment() bool {
 	return node.Value == "K" && len(node.children) > 1
 }
