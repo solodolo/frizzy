@@ -17,6 +17,10 @@ func (receiver *ElseParseNode) String() string {
 // GetBody returns the body of this else
 // Body node should always exist but might not have any children
 // if the else section is empty
-func (receiver *ElseParseNode) GetBody() TreeNode {
-	return receiver.children[1]
+func (receiver *ElseParseNode) GetBody() (TreeNode, bool) {
+	if len(receiver.children) > 0 {
+		return receiver.children[1], true
+	}
+
+	return nil, false
 }

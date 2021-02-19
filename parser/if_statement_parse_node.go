@@ -76,7 +76,7 @@ func (receiver *IfStatementParseNode) getElseNode() (*ElseParseNode, bool) {
 // GetElseBody returns the boyd of the else section or false if there isn't one
 func (receiver *IfStatementParseNode) GetElseBody() (TreeNode, bool) {
 	if elseNode, ok := receiver.getElseNode(); ok {
-		return elseNode.GetBody(), true
+		return elseNode.GetBody()
 	}
 
 	return nil, false
