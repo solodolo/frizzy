@@ -4,19 +4,25 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 
 	"mettlach.codes/frizzy/file"
 	"mettlach.codes/frizzy/parser"
 )
 
 // NodeProcessor holds a context and an optional
-// function to receive export assignments during
+// channel to receive export assignments during
 // this processing run
 type NodeProcessor struct {
-	Context          *Context
-	ExportAssignment func(key string, val Result)
-	WaitGroup        sync.WaitGroup
+	Context    *Context
+	exportChan chan ExportData
+}
+
+// ExportData represents a piece of data that is
+// exported during this processing run to be made
+// available to other processing runs
+type ExportData struct {
+	Key   string
+	Value Result
 }
 
 // Process reads each node from nodeChan and walks through its tree
@@ -37,12 +43,16 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		children := head.GetChildren()
 
 		if typedNode.IsAssignment() {
-			left, right, _ := receiver.getBinaryOperatorAndOperands(children)
-			varName := left.GetResult().(string)
+			if name, right, err := receiver.getAssignmentKeyAndValue(children); err == nil {
+				(*receiver.Context)[name] = ContextNode{result: right}
+				if receiver.exportChan != nil {
+					go receiver.doExport(ExportData{name, right})
+				}
+			} else {
+				log.Fatal(err)
+			}
 
-			(*receiver.Context)[varName] = ContextNode{result: right}
-
-			return nil
+			return StringResult("")
 		} else if typedNode.IsAddition() {
 			addResult, err := processAddition(receiver.getBinaryOperatorAndOperands(children))
 
@@ -218,6 +228,18 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 	return nil
 }
 
+// Returns the left side of the assignment as a string and the right as a processed Result
+func (receiver *NodeProcessor) getAssignmentKeyAndValue(ops []parser.TreeNode) (string, Result, error) {
+	if left, ok := ops[0].(*parser.VarParseNode); ok {
+		name := left.Value
+		right := receiver.processHeadNode(ops[len(ops)-1])
+
+		return name, right, nil
+	}
+
+	return "", nil, fmt.Errorf("invalid assignment to %T", ops[0])
+}
+
 // Returns the operator and operands of the binary operation represented in ops
 // e.g. given 5 + 4, ops = []parser.TreeNode{5, '+', 4}
 func (receiver *NodeProcessor) getBinaryOperatorAndOperands(ops []parser.TreeNode) (Result, Result, string) {
@@ -235,6 +257,10 @@ func (receiver *NodeProcessor) getUnaryOperatorAndOperand(ops []parser.TreeNode)
 	right := receiver.processHeadNode(ops[len(ops)-1])
 
 	return right, string(operator)
+}
+
+func (receiver *NodeProcessor) doExport(data ExportData) {
+	receiver.exportChan <- data
 }
 
 func processAddition(left, right Result, operator string) (Result, error) {

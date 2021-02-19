@@ -616,48 +616,108 @@ func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 }
 
 func TestAssignmentCallsFuncWithAssignmentKeyAndValue(t *testing.T) {
-	called := false
-	exportFunc := func(key string, val Result) {
-		called = true
+	partial := []lexer.Token{
+		lexer.VarToken{Variable: "foo.title"},
+		lexer.AssignOpToken{Operator: "="},
+	}
+
+	vals := []lexer.Token{
+		lexer.StrToken{Str: "fizzbuzz"},
+		lexer.NumToken{Num: "100"},
+	}
+
+	for _, val := range vals {
+		head := generateTree(append(partial, val))
+		exportChan := runProcessWithExport(head)
+
+		expected := val.GetValue()
+		if export := <-exportChan; export.Key != "foo.title" || export.Value.String() != expected {
+			t.Errorf("expected export to have key,value foo.title, %s, got %s, %s", expected, export.Key, export.Value.String())
+		}
+	}
+}
+
+func TestProcessedVarNodeReturnsContextValue(t *testing.T) {
+	context := &Context{"foo": ContextNode{result: StringResult("val")}}
+	head := generateTree([]lexer.Token{
+		lexer.VarToken{Variable: "foo"},
+	})
+
+	resultChan := runProcessWithContext(head, context)
+	result := <-resultChan
+
+	if result.String() != "val" {
+		t.Errorf("expected result to be val, got %s", result.String())
+	}
+}
+
+func TestProcessedVarNodeReturnsNestedContextValue(t *testing.T) {
+	expectedResult := StringResult("fizzbuzz")
+	context := &Context{
+		"foo": ContextNode{child: &Context{
+			"bar": ContextNode{child: &Context{
+				"baz": ContextNode{result: expectedResult},
+			}},
+		}},
+	}
+	head := generateTree([]lexer.Token{
+		lexer.VarToken{Variable: "foo.bar.baz"},
+	})
+
+	resultChan := runProcessWithContext(head, context)
+	result := <-resultChan
+
+	if result.String() != expectedResult.String() {
+		t.Errorf("expected result to be %s, got %s", expectedResult.String(), result.String())
+	}
+}
+
+func TestProcessedVarNodeReturnsContainerValue(t *testing.T) {
+	expectedResult := StringResult(fmt.Sprintf("%T", ContainerResult{}))
+
+	context := &Context{
+		"foo": ContextNode{child: &Context{
+			"bar": ContextNode{child: &Context{
+				"baz": ContextNode{result: expectedResult},
+			}},
+		}},
 	}
 
 	head := generateTree([]lexer.Token{
-		lexer.IdentToken{Identifier: "foo"},
-		lexer.LogicOpToken{Operator: "="},
-		lexer.NumToken{Num: "100"},
+		lexer.VarToken{Variable: "foo.bar"},
 	})
 
-	processor, _ := runProcessWithExport(head, exportFunc)
-	processor.WaitGroup.Wait()
+	resultChan := runProcessWithContext(head, context)
+	result := <-resultChan
 
-	if called {
-		t.Errorf("expected exportFunc to be called but it was not")
+	if result.String() != expectedResult.String() {
+		t.Errorf("expected result to be %s, got %s", expectedResult.String(), result.String())
 	}
-
 }
 
 func runProcess(head parser.TreeNode) chan Result {
+	return runProcessWithContext(head, nil)
+}
+
+func runProcessWithExport(head parser.TreeNode) chan ExportData {
+	nodeChan := getNodeChan([]parser.TreeNode{head})
+	exportChan := make(chan ExportData)
+
+	context := &Context{}
+	processor := &NodeProcessor{Context: context, exportChan: exportChan}
+	go processor.Process(nodeChan, make(chan Result))
+
+	return exportChan
+}
+
+func runProcessWithContext(head parser.TreeNode, context *Context) chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 	resultChan := make(chan Result)
 
-	context := &Context{}
 	processor := NodeProcessor{Context: context}
 	go processor.Process(nodeChan, resultChan)
 
 	return resultChan
-}
-
-func runProcessWithExport(head parser.TreeNode, exportFunc func(key string, val Result)) (*NodeProcessor, chan Result) {
-	nodeChan := getNodeChan([]parser.TreeNode{head})
-	resultChan := make(chan Result)
-
-	context := &Context{}
-	processor := &NodeProcessor{Context: context, ExportAssignment: exportFunc}
-	go func() {
-		processor.Process(nodeChan, resultChan)
-	}()
-
-	return processor, resultChan
 }
 
 func generateStringTree(str string) parser.TreeNode {
