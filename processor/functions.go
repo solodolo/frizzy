@@ -32,7 +32,8 @@ func Paginate(filePath, templatePath, numPerPage Result) StringResult {
 		}(nodeChan, templateNodes)
 
 		resultChan := make(chan Result)
-		go Process(nodeChan, resultChan, paginationContext)
+		processor := NodeProcessor{Context: paginationContext}
+		go processor.Process(nodeChan, resultChan)
 	}
 	return StringResult("")
 }

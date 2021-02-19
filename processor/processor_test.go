@@ -615,15 +615,49 @@ func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	}
 }
 
+func TestAssignmentCallsFuncWithAssignmentKeyAndValue(t *testing.T) {
+	called := false
+	exportFunc := func(key string, val Result) {
+		called = true
+	}
+
+	head := generateTree([]lexer.Token{
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.LogicOpToken{Operator: "="},
+		lexer.NumToken{Num: "100"},
+	})
+
+	processor, _ := runProcessWithExport(head, exportFunc)
+	processor.WaitGroup.Wait()
+
+	if called {
+		t.Errorf("expected exportFunc to be called but it was not")
+	}
+
+}
+
 func runProcess(head parser.TreeNode) chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 	resultChan := make(chan Result)
 
 	context := &Context{}
-
-	go Process(nodeChan, resultChan, context)
+	processor := NodeProcessor{Context: context}
+	go processor.Process(nodeChan, resultChan)
 
 	return resultChan
+}
+
+func runProcessWithExport(head parser.TreeNode, exportFunc func(key string, val Result)) (*NodeProcessor, chan Result) {
+	nodeChan := getNodeChan([]parser.TreeNode{head})
+	resultChan := make(chan Result)
+
+	context := &Context{}
+	processor := &NodeProcessor{Context: context, ExportAssignment: exportFunc}
+	go func() {
+		processor.Process(nodeChan, resultChan)
+	}()
+
+	return processor, resultChan
 }
 
 func generateStringTree(str string) parser.TreeNode {

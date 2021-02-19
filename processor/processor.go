@@ -4,22 +4,32 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"mettlach.codes/frizzy/file"
 	"mettlach.codes/frizzy/parser"
 )
 
+// NodeProcessor holds a context and an optional
+// function to receive export assignments during
+// this processing run
+type NodeProcessor struct {
+	Context          *Context
+	ExportAssignment func(key string, val Result)
+	WaitGroup        sync.WaitGroup
+}
+
 // Process reads each node from nodeChan and walks through its tree
 // turning parse nodes into output
-func Process(nodeChan <-chan parser.TreeNode, resultChan chan<- Result, context *Context) {
+func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, resultChan chan<- Result) {
 	defer close(resultChan)
 
 	for node := range nodeChan {
-		resultChan <- processHeadNode(node, context)
+		resultChan <- receiver.processHeadNode(node)
 	}
 }
 
-func processHeadNode(head parser.TreeNode, context *Context) Result {
+func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 	// if head is an assignment
 	//	add to context
 	switch typedNode := head.(type) {
@@ -27,13 +37,14 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 		children := head.GetChildren()
 
 		if typedNode.IsAssignment() {
-			left, right, _ := getBinaryOperatorAndOperands(children, context)
+			left, right, _ := receiver.getBinaryOperatorAndOperands(children)
 			varName := left.GetResult().(string)
 
-			(*context)[varName] = ContextNode{result: right}
+			(*receiver.Context)[varName] = ContextNode{result: right}
+
 			return nil
 		} else if typedNode.IsAddition() {
-			addResult, err := processAddition(getBinaryOperatorAndOperands(children, context))
+			addResult, err := processAddition(receiver.getBinaryOperatorAndOperands(children))
 
 			if err != nil {
 				panic(fmt.Sprintf("addition error: %s", err))
@@ -41,28 +52,28 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 
 			return addResult
 		} else if typedNode.IsMultiplication() {
-			multResult, err := processMultiplication(getBinaryOperatorAndOperands(children, context))
+			multResult, err := processMultiplication(receiver.getBinaryOperatorAndOperands(children))
 
 			if err != nil {
 				panic(fmt.Sprintf("multiplication error: %s", err))
 			}
 			return multResult
 		} else if typedNode.IsRelation() {
-			relResult, err := processRel(getBinaryOperatorAndOperands(children, context))
+			relResult, err := processRel(receiver.getBinaryOperatorAndOperands(children))
 
 			if err != nil {
 				panic(fmt.Sprintf("rel error: %s", err))
 			}
 			return relResult
 		} else if typedNode.IsLogic() {
-			logicResult, err := processLogic(getBinaryOperatorAndOperands(children, context))
+			logicResult, err := processLogic(receiver.getBinaryOperatorAndOperands(children))
 
 			if err != nil {
 				panic(fmt.Sprintf("logic error: %s", err))
 			}
 			return logicResult
 		} else if typedNode.IsUnary() {
-			unaryResult, err := processUnary(getUnaryOperatorAndOperand(children, context))
+			unaryResult, err := processUnary(receiver.getUnaryOperatorAndOperand(children))
 
 			if err != nil {
 				panic(fmt.Sprintf("unary error: %s", err))
@@ -72,45 +83,47 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 		} else {
 			// TODO: This smells bad
 			if len(children) == 1 {
-				return processHeadNode(children[0], context)
+				return receiver.processHeadNode(children[0])
 			}
 			ret := ""
 			for _, child := range children {
-				ret += processHeadNode(child, context).String()
+				ret += receiver.processHeadNode(child).String()
 			}
 			return StringResult(ret)
 		}
 	case *parser.ForLoopParseNode:
-		inputResult := processHeadNode(typedNode.GetLoopInput(), context)
+		inputResult := receiver.processHeadNode(typedNode.GetLoopInput())
 		inputContexts := getLoopInputContexts(&inputResult)
 		loopBody := typedNode.GetLoopBody()
 
 		bodyText := ""
 
 		// TODO: is this loop needed or is the body a single node?
+		context := receiver.Context
 		for _, inputContext := range inputContexts {
 			inputContext.Merge(context)
+			loopProcessor := &NodeProcessor{Context: inputContext}
 			for i := range loopBody {
-				bodyText += processHeadNode(loopBody[i], inputContext).String() + "\n"
+				bodyText += loopProcessor.processHeadNode(loopBody[i]).String() + "\n"
 			}
 		}
 
 		return StringResult(bodyText)
 	case *parser.IfStatementParseNode:
-		ifCondition := processHeadNode(typedNode.GetIfConditional(), context).(BoolResult)
+		ifCondition := receiver.processHeadNode(typedNode.GetIfConditional()).(BoolResult)
 		// check if first
 		if bool(ifCondition) {
-			ifBody := processHeadNode(typedNode.GetIfBody(), context)
+			ifBody := receiver.processHeadNode(typedNode.GetIfBody())
 			return StringResult(ifBody.String())
 		}
 
 		// check any else_ifs
 		elseIfConditions := typedNode.GetElseIfConditionals()
 		for i, elseCondition := range elseIfConditions {
-			condition := processHeadNode(elseCondition, context).(BoolResult)
+			condition := receiver.processHeadNode(elseCondition).(BoolResult)
 			if bool(condition) {
 				if elseIfBody, ok := typedNode.GetElseIfBody(i); ok {
-					body := processHeadNode(elseIfBody, context)
+					body := receiver.processHeadNode(elseIfBody)
 					return StringResult(body.String())
 				}
 			}
@@ -118,7 +131,7 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 
 		// finally try for the else
 		if elseBody, ok := typedNode.GetElseBody(); ok {
-			body := processHeadNode(elseBody, context)
+			body := receiver.processHeadNode(elseBody)
 			return StringResult(body.String())
 		}
 
@@ -130,7 +143,7 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 		processedArgs := []Result{}
 
 		for _, arg := range args {
-			processedArgs = append(processedArgs, processHeadNode(arg, context))
+			processedArgs = append(processedArgs, receiver.processHeadNode(arg))
 		}
 
 		switch funcName {
@@ -153,7 +166,7 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 		keys := strings.Split(contextKey, ".")
 
 		// loop through each key and recursively look up the next level
-		current := ContextNode{child: context}
+		current := ContextNode{child: receiver.Context}
 		for _, key := range keys {
 			contextNode, exists := current.At(key)
 
@@ -207,19 +220,19 @@ func processHeadNode(head parser.TreeNode, context *Context) Result {
 
 // Returns the operator and operands of the binary operation represented in ops
 // e.g. given 5 + 4, ops = []parser.TreeNode{5, '+', 4}
-func getBinaryOperatorAndOperands(ops []parser.TreeNode, context *Context) (Result, Result, string) {
-	left := processHeadNode(ops[0], context)
-	operator := processHeadNode(ops[1], context).(StringResult)
-	right := processHeadNode(ops[len(ops)-1], context)
+func (receiver *NodeProcessor) getBinaryOperatorAndOperands(ops []parser.TreeNode) (Result, Result, string) {
+	left := receiver.processHeadNode(ops[0])
+	operator := receiver.processHeadNode(ops[1]).(StringResult)
+	right := receiver.processHeadNode(ops[len(ops)-1])
 
 	return left, right, string(operator)
 }
 
 // Returns the operator and operand of the unary operation in ops
 // e.g. given !false, ops = []parser.TreeNode{"!", false}
-func getUnaryOperatorAndOperand(ops []parser.TreeNode, context *Context) (Result, string) {
-	operator := processHeadNode(ops[0], context).(StringResult)
-	right := processHeadNode(ops[len(ops)-1], context)
+func (receiver *NodeProcessor) getUnaryOperatorAndOperand(ops []parser.TreeNode) (Result, string) {
+	operator := receiver.processHeadNode(ops[0]).(StringResult)
+	right := receiver.processHeadNode(ops[len(ops)-1])
 
 	return right, string(operator)
 }
