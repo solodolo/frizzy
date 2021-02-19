@@ -695,6 +695,36 @@ func TestProcessedVarNodeReturnsContainerValue(t *testing.T) {
 	}
 }
 
+func TestTrueIfReturnsIfBody(t *testing.T) {
+	expected := "the if body"
+	condition := []lexer.Token{lexer.BoolToken{Value: "true"}}
+	body := []lexer.Token{lexer.StrToken{Str: expected}}
+
+	head := generateTree(generateIfTokens(condition, body))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestFalseIfReturnsEmptyBody(t *testing.T) {
+	expected := ""
+	condition := []lexer.Token{lexer.BoolToken{Value: "false"}}
+	body := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+
+	head := generateTree(generateIfTokens(condition, body))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
+}
+
 func runProcess(head parser.TreeNode) chan Result {
 	return runProcessWithContext(head, nil)
 }
@@ -744,4 +774,22 @@ func generateTree(tok []lexer.Token) parser.TreeNode {
 	}()
 
 	return <-nodeChan
+}
+
+func generateIfTokens(condition, body []lexer.Token) []lexer.Token {
+	ifTokens := append(
+		[]lexer.Token{
+			lexer.IfToken{},
+			lexer.SymbolToken{Symbol: "("},
+		},
+		condition...,
+	)
+
+	ifTokens = append(ifTokens, lexer.SymbolToken{Symbol: ")"})
+
+	for _, bodyTok := range body {
+		ifTokens = append(ifTokens, bodyTok, lexer.SymbolToken{Symbol: ";"})
+	}
+
+	return append(ifTokens, lexer.EndToken{})
 }
