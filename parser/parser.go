@@ -195,8 +195,11 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 		varName := tok.Variable
 		node = &VarParseNode{Value: varName}
 	case lexer.BlockToken:
-		block := tok.GetValue()
+		block := tok.Block
 		node = &BlockParseNode{Value: block}
+	case lexer.SymbolToken:
+		symbol := tok.Symbol
+		node = &SymbolParseNode{Value: symbol}
 	default:
 		str := tok.GetValue()
 		node = &StringParseNode{Value: str}

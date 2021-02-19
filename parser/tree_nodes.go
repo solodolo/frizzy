@@ -154,3 +154,12 @@ type BlockParseNode struct {
 func (node BlockParseNode) String() string {
 	return fmt.Sprintf("%T", node)
 }
+
+type SymbolParseNode struct {
+	Value string
+	ParseNode
+}
+
+func (node SymbolParseNode) String() string {
+	return fmt.Sprintf("%T", node)
+}
