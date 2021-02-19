@@ -101,6 +101,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 			}
 			return StringResult(ret)
 		}
+	case *parser.MultiStatementParseNode:
+		statements := typedNode.GetStatements()
+		resultText := make([]string, len(statements))
+
+		for i, statement := range typedNode.GetStatements() {
+			result := receiver.processHeadNode(statement)
+			resultText[i] = result.String()
+		}
+		return StringResult(strings.Join(resultText, "\n"))
 	case *parser.ForLoopParseNode:
 		inputResult := receiver.processHeadNode(typedNode.GetLoopInput())
 		inputContexts := getLoopInputContexts(&inputResult)
