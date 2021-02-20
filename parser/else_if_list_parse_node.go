@@ -73,5 +73,9 @@ func (receiver *ElseIfListParseNode) GetConditional() TreeNode {
 
 // GetBody returns the body of this else_if
 func (receiver *ElseIfListParseNode) GetBody() TreeNode {
+	if receiver.hasBlockChildren() {
+		return receiver.children[5]
+	}
+
 	return receiver.children[4]
 }
