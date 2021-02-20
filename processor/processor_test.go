@@ -727,6 +727,7 @@ func TestTrueIfReturnsIfMultilineBody(t *testing.T) {
 		t.Errorf("expected result to be %q, got %q", expected, result.String())
 	}
 }
+
 func TestFalseIfReturnsEmptyBody(t *testing.T) {
 	expected := ""
 	condition := []lexer.Token{lexer.BoolToken{Value: "false"}}
@@ -777,7 +778,36 @@ func TestFalseIfReturnsElseBody(t *testing.T) {
 	if result.String() != expected {
 		t.Errorf("expected result to be %q, got %q", expected, result.String())
 	}
+}
 
+func TestMultipleTrueElseIfReturnsFirstTrue(t *testing.T) {
+	expected := "this is the one"
+	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
+	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifToks := generateIfTokens(ifCondition, ifBody, false)
+
+	elseIfConditions := [][]lexer.Token{
+		{lexer.BoolToken{Value: "false"}},
+		{lexer.BoolToken{Value: "true"}},
+		{lexer.BoolToken{Value: "true"}},
+	}
+
+	elseIfBodies := [][]lexer.Token{
+		{lexer.StrToken{Str: "a"}},
+		{lexer.StrToken{Str: expected}},
+		{lexer.StrToken{Str: "a"}},
+	}
+
+	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
+
+	head := generateTree(append(ifToks, elseIfToks...))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
 }
 
 func runProcess(head parser.TreeNode) chan Result {
@@ -861,4 +891,29 @@ func generateElseTokens(body []lexer.Token) []lexer.Token {
 	}
 
 	return append(elseTokens, lexer.EndToken{})
+}
+
+func generateElseIfTokens(conditions, bodies [][]lexer.Token, includeEnd bool) []lexer.Token {
+	elseIfTokens := []lexer.Token{}
+	for i, condition := range conditions {
+		body := bodies[i]
+		elseIfToken := []lexer.Token{
+			lexer.ElseIfToken{},
+			lexer.SymbolToken{Symbol: "("},
+		}
+		elseIfToken = append(elseIfToken, condition...)
+		elseIfToken = append(elseIfToken, lexer.SymbolToken{Symbol: ")"})
+		elseIfToken = append(elseIfToken, body...)
+		elseIfToken = append(elseIfToken, lexer.SymbolToken{Symbol: ";"})
+
+		elseIfTokens = append(elseIfTokens, elseIfToken...)
+	}
+
+	if includeEnd {
+		return append(elseIfTokens, lexer.EndToken{})
+	}
+
+	return elseIfTokens
+
+	return elseIfTokens
 }
