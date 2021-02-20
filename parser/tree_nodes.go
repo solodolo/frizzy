@@ -161,5 +161,5 @@ type SymbolParseNode struct {
 }
 
 func (node SymbolParseNode) String() string {
-	return fmt.Sprintf("%T", node)
+	return fmt.Sprintf("%T: %s", node, node.Value)
 }
