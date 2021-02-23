@@ -13,8 +13,9 @@ import (
 // channel to receive export assignments during
 // this processing run
 type NodeProcessor struct {
-	Context    *Context
-	exportChan chan ExportData
+	Context     *Context
+	PathReader  file.GetPathFunc
+	ExportStore ExportStorage
 }
 
 // ExportData represents a piece of data that is
@@ -45,9 +46,7 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		if typedNode.IsAssignment() {
 			if name, right, err := receiver.getAssignmentKeyAndValue(children); err == nil {
 				(*receiver.Context)[name] = ContextNode{result: right}
-				if receiver.exportChan != nil {
-					go receiver.doExport(ExportData{name, right})
-				}
+				receiver.doExport(name, right)
 			} else {
 				log.Fatal(err)
 			}
@@ -112,22 +111,10 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		return StringResult(strings.Join(resultText, "\n"))
 	case *parser.ForLoopParseNode:
 		inputResult := receiver.processHeadNode(typedNode.GetLoopInput())
-		inputContexts := getLoopInputContexts(&inputResult)
-		loopBody := typedNode.GetLoopBody()
+		inputContexts := receiver.getLoopInputContexts(&inputResult)
+		loopBodyNodes := typedNode.GetLoopBodyNodes()
 
-		bodyText := ""
-
-		// TODO: is this loop needed or is the body a single node?
-		context := receiver.Context
-		for _, inputContext := range inputContexts {
-			inputContext.Merge(context)
-			loopProcessor := &NodeProcessor{Context: inputContext}
-			for i := range loopBody {
-				bodyText += loopProcessor.processHeadNode(loopBody[i]).String() + "\n"
-			}
-		}
-
-		return StringResult(bodyText)
+		return receiver.generateLoopBody(loopBodyNodes, inputContexts)
 	case *parser.IfStatementParseNode:
 		ifCondition := receiver.processHeadNode(typedNode.GetIfConditional()).(BoolResult)
 		// check if first
@@ -268,8 +255,44 @@ func (receiver *NodeProcessor) getUnaryOperatorAndOperand(ops []parser.TreeNode)
 	return right, string(operator)
 }
 
-func (receiver *NodeProcessor) doExport(data ExportData) {
-	receiver.exportChan <- data
+func (receiver *NodeProcessor) doExport(key string, value Result) {
+	if receiver.ExportStore != nil {
+		receiver.ExportStore.Insert(key, value)
+	}
+}
+
+func (receiver *NodeProcessor) doGetContext(filePath string) *Context {
+	if receiver.ExportStore != nil {
+		return receiver.ExportStore.GetFileContext(filePath)
+	}
+
+	return &Context{}
+}
+
+func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, contexts []*Context) StringResult {
+	bodyText := ""
+
+	// TODO: is this loop needed or is the body a single node?
+	context := receiver.Context
+	for _, inputContext := range contexts {
+		inputContext.Merge(context)
+		loopProcessor := &NodeProcessor{Context: inputContext}
+		for _, bodyNode := range bodyNodes {
+			bodyText += loopProcessor.processHeadNode(bodyNode).String() + "\n"
+		}
+	}
+
+	return StringResult(bodyText)
+}
+
+// getPaths reads paths using the provided PathReader or defaulting to
+// file.GetContentPaths if PathReader is nil
+func (receiver *NodeProcessor) getPaths(subpath string) []string {
+	pathReader := receiver.PathReader
+	if pathReader == nil {
+		pathReader = file.GetContentPaths
+	}
+	return pathReader(subpath)
 }
 
 func processAddition(left, right Result, operator string) (Result, error) {
@@ -343,28 +366,28 @@ func processUnary(right Result, operator string) (Result, error) {
 }
 
 // returns the contexts of each file in contextPath dir
-func getLoopContentContexts(contextPath string) []*Context {
-	store := GetExportStore()
+func (receiver *NodeProcessor) getLoopContentContexts(contextPath string) []*Context {
 	// typedInput is a path to content
-	contentPaths := file.GetContentPaths(contextPath)
+	contentPaths := receiver.getPaths(contextPath)
 	ret := make([]*Context, len(contentPaths))
 
 	// iterate through dir in content dir
 	for i, path := range contentPaths {
-		ret[i] = store.Get(path)
+		ret[i] = receiver.doGetContext(path)
 	}
-	return ret
+
 	// return array of export store context for each file
+	return ret
 }
 
 // getLoopInputContexts returns an array of contexts that should
 // be sent on each iteration of a for loop
-func getLoopInputContexts(input *Result) []*Context {
+func (receiver *NodeProcessor) getLoopInputContexts(input *Result) []*Context {
 	switch typedInput := (*input).(type) {
-	case *StringResult:
+	case StringResult:
 		// return a context for each file in the path
-		return getLoopContentContexts(string(*typedInput))
-	case *ContainerResult:
+		return receiver.getLoopContentContexts(string(typedInput))
+	case ContainerResult:
 		// return a context
 		return []*Context{typedInput.context}
 	default:
