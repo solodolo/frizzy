@@ -1,5 +1,7 @@
 package processor
 
+import "sort"
+
 // ContextNode hosts either a Result or another
 // Context level
 type ContextNode struct {
@@ -34,10 +36,39 @@ type Context map[string]ContextNode
 
 // Merge adds the keys and values from other into receiver
 // Matching keys in receiver will be overwritten
-func (receiver *Context) Merge(other *Context) {
-	for k, v := range *other {
-		(*receiver)[k] = v
+func (receiver *Context) Merge(other *Context) *Context {
+	merged := &Context{}
+	for k, v := range *receiver {
+		(*merged)[k] = v
 	}
+
+	for k, v := range *other {
+		(*merged)[k] = v
+	}
+	return merged
+}
+
+// Keys returns the sorted keys of receiver
+func (receiver *Context) Keys() []string {
+	keys := make([]string, 0, len(*receiver))
+	for key, _ := range *receiver {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+	return keys
+}
+
+// Values converts a nested context into an array of contexts
+// reducing its level by one
+func (receiver *Context) Values() []*Context {
+	keys := receiver.Keys()
+	values := make([]*Context, 0, len(*receiver))
+	for _, key := range keys {
+		values = append(values, (*receiver)[key].child)
+	}
+
+	return values
 }
 
 // At returns the ContextNode stored under key or false
