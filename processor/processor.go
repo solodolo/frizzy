@@ -113,8 +113,9 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		inputResult := receiver.processHeadNode(typedNode.GetLoopInput())
 		inputContexts := receiver.getLoopInputContexts(&inputResult)
 		loopBodyNodes := typedNode.GetLoopBodyNodes()
+		loopIdent := typedNode.GetLoopIdent()
 
-		return receiver.generateLoopBody(loopBodyNodes, inputContexts)
+		return receiver.generateLoopBody(loopBodyNodes, *loopIdent, inputContexts)
 	case *parser.IfStatementParseNode:
 		ifCondition := receiver.processHeadNode(typedNode.GetIfConditional()).(BoolResult)
 		// check if first
@@ -269,17 +270,19 @@ func (receiver *NodeProcessor) doGetContext(filePath string) *Context {
 	return &Context{}
 }
 
-func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, contexts []*Context) StringResult {
+func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, loopIdent parser.IdentParseNode, contexts []*Context) StringResult {
 	bodyText := ""
 
-	// TODO: is this loop needed or is the body a single node?
+	if len(bodyNodes) == 0 || len(contexts) == 0 {
+		return StringResult(bodyText)
+	}
+
 	context := receiver.Context
+	merged := &Context{}
 	for _, inputContext := range contexts {
-		inputContext.Merge(context)
-		loopProcessor := &NodeProcessor{Context: inputContext}
-		for _, bodyNode := range bodyNodes {
-			bodyText += loopProcessor.processHeadNode(bodyNode).String() + "\n"
-		}
+		(*merged)[loopIdent.Value] = ContextNode{child: context.Merge(inputContext)}
+		loopProcessor := &NodeProcessor{Context: merged}
+		bodyText += loopProcessor.processHeadNode(bodyNodes[0]).String() + "\n"
 	}
 
 	return StringResult(bodyText)
@@ -389,7 +392,7 @@ func (receiver *NodeProcessor) getLoopInputContexts(input *Result) []*Context {
 		return receiver.getLoopContentContexts(string(typedInput))
 	case ContainerResult:
 		// return a context
-		return []*Context{typedInput.context}
+		return typedInput.context.Values()
 	default:
 		return nil
 	}
