@@ -7,6 +7,10 @@ import (
 	"mettlach.codes/frizzy/config"
 )
 
+// GetPathFunc allows normal functions to be used
+// to retreive paths from various sources
+type GetPathFunc func(subpath string) []string
+
 // GetContentPaths returns an array of paths to each file
 // in the project's <contentroot>/<subpath> directory
 func GetContentPaths(subpath string) []string {
