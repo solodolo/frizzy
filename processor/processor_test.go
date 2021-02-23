@@ -925,7 +925,38 @@ func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
 
 	forToks := generateForLoopTokens(condition, body)
 	head := generateTree(forToks)
-	resultChan := runProcessWithGetPathFunc(head, pathReader)
+	resultChan := runProcessWithGetPathFunc(head, nil, pathReader)
+
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected for loop result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
+	condition := []lexer.Token{
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.InToken{},
+		lexer.StrToken{Str: "bar"},
+	}
+
+	body := []lexer.Token{
+		lexer.VarToken{Variable: "foo.date"},
+	}
+
+	expected := ""
+	pathReader := getTestPathReader(3)
+	exportStore := &ExportFileStore{filePath: ""}
+	exportStore.Insert("date", StringResult("some-date-someday"))
+
+	for i := 0; i < len(pathReader("")); i++ {
+		expected += "some-date-someday" + "\n"
+	}
+
+	forToks := generateForLoopTokens(condition, body)
+	head := generateTree(forToks)
+	resultChan := runProcessWithGetPathFunc(head, exportStore, pathReader)
 
 	result := <-resultChan
 
@@ -999,11 +1030,11 @@ func runProcessWithContext(head parser.TreeNode, context *Context) chan Result {
 	return resultChan
 }
 
-func runProcessWithGetPathFunc(head parser.TreeNode, getPathFunc func(string) []string) chan Result {
+func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, getPathFunc func(string) []string) chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 	resultChan := make(chan Result)
 
-	processor := NodeProcessor{Context: &Context{}}
+	processor := NodeProcessor{Context: &Context{}, ExportStore: exportStore}
 	processor.PathReader = getPathFunc
 	go processor.Process(nodeChan, resultChan)
 
