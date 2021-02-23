@@ -615,7 +615,7 @@ func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	}
 }
 
-func TestAssignmentCallsFuncWithAssignmentKeyAndValue(t *testing.T) {
+func TestAssignmentAddsValueIntoStore(t *testing.T) {
 	partial := []lexer.Token{
 		lexer.VarToken{Variable: "foo.title"},
 		lexer.AssignOpToken{Operator: "="},
@@ -628,11 +628,14 @@ func TestAssignmentCallsFuncWithAssignmentKeyAndValue(t *testing.T) {
 
 	for _, val := range vals {
 		head := generateTree(append(partial, val))
-		exportChan := runProcessWithExport(head)
+		resultChan, exportStore := runProcessWithExportStore(head, "foo")
+
+		<-resultChan
 
 		expected := val.GetValue()
-		if export := <-exportChan; export.Key != "foo.title" || export.Value.String() != expected {
-			t.Errorf("expected export to have key,value foo.title, %s, got %s, %s", expected, export.Key, export.Value.String())
+		context := exportStore.GetFileContext("foo")
+		if got, ok := context.At("foo.title"); !ok || got.result == nil || got.result.String() != expected {
+			t.Errorf("expected export to contain key %q and value %q", "foo.title", expected)
 		}
 	}
 }
@@ -810,19 +813,180 @@ func TestMultipleTrueElseIfReturnsFirstTrue(t *testing.T) {
 	}
 }
 
+func TestMultipleFalseElseIfReturnsEmptyString(t *testing.T) {
+	expected := ""
+	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
+	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifToks := generateIfTokens(ifCondition, ifBody, false)
+
+	elseIfConditions := [][]lexer.Token{
+		{lexer.BoolToken{Value: "false"}},
+		{lexer.BoolToken{Value: "false"}},
+		{lexer.BoolToken{Value: "false"}},
+	}
+
+	elseIfBodies := [][]lexer.Token{
+		{lexer.StrToken{Str: "a"}},
+		{lexer.StrToken{Str: "b"}},
+		{lexer.StrToken{Str: "c"}},
+	}
+
+	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
+
+	head := generateTree(append(ifToks, elseIfToks...))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestMultipleTrueElseIfReturnsTrueIfBody(t *testing.T) {
+	expected := "the if body"
+	ifCondition := []lexer.Token{lexer.BoolToken{Value: "true"}}
+	ifBody := []lexer.Token{lexer.StrToken{Str: expected}}
+	ifToks := generateIfTokens(ifCondition, ifBody, false)
+
+	elseIfConditions := [][]lexer.Token{
+		{lexer.BoolToken{Value: "true"}},
+		{lexer.BoolToken{Value: "true"}},
+		{lexer.BoolToken{Value: "true"}},
+	}
+
+	elseIfBodies := [][]lexer.Token{
+		{lexer.StrToken{Str: "a"}},
+		{lexer.StrToken{Str: "b"}},
+		{lexer.StrToken{Str: "c"}},
+	}
+
+	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
+
+	head := generateTree(append(ifToks, elseIfToks...))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestMultipleFalseElseIfReturnsElseBody(t *testing.T) {
+	expected := "the else body"
+	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
+	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifToks := generateIfTokens(ifCondition, ifBody, false)
+
+	elseIfConditions := [][]lexer.Token{
+		{lexer.BoolToken{Value: "false"}},
+		{lexer.BoolToken{Value: "false"}},
+		{lexer.BoolToken{Value: "false"}},
+	}
+
+	elseIfBodies := [][]lexer.Token{
+		{lexer.StrToken{Str: "a"}},
+		{lexer.StrToken{Str: "b"}},
+		{lexer.StrToken{Str: "c"}},
+	}
+
+	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, false)
+	elseToks := generateElseTokens([]lexer.Token{lexer.StrToken{Str: expected}})
+
+	head := generateTree(append(ifToks, append(elseIfToks, elseToks...)...))
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
+	bodyText := "this is the body"
+
+	condition := []lexer.Token{
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.InToken{},
+		lexer.StrToken{Str: "bar"},
+	}
+
+	body := []lexer.Token{
+		lexer.StrToken{Str: bodyText},
+	}
+
+	expected := ""
+	pathReader := getTestPathReader(3)
+	for i := 0; i < len(pathReader("")); i++ {
+		expected += bodyText + "\n"
+	}
+
+	forToks := generateForLoopTokens(condition, body)
+	head := generateTree(forToks)
+	resultChan := runProcessWithGetPathFunc(head, pathReader)
+
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected for loop result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
+	expected := "first\nsecond\nthird\n"
+	context := &Context{
+		"page": ContextNode{child: &Context{
+			"content": ContextNode{child: &Context{
+				"0": ContextNode{child: &Context{
+					"title": ContextNode{result: StringResult("first")},
+				}},
+				"1": ContextNode{child: &Context{
+					"title": ContextNode{result: StringResult("second")},
+				}},
+				"2": ContextNode{child: &Context{
+					"title": ContextNode{result: StringResult("third")},
+				}},
+			}},
+		}},
+	}
+
+	condition := []lexer.Token{
+		lexer.IdentToken{Identifier: "page"},
+		lexer.InToken{},
+		lexer.VarToken{Variable: "page.content"},
+	}
+
+	body := []lexer.Token{
+		lexer.VarToken{Variable: "page.title"},
+	}
+
+	forToks := generateForLoopTokens(condition, body)
+	head := generateTree(forToks)
+
+	resultChan := runProcessWithContext(head, context)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected for loop result to be %q, got %q", expected, result.String())
+	}
+}
+
 func runProcess(head parser.TreeNode) chan Result {
 	return runProcessWithContext(head, nil)
 }
 
-func runProcessWithExport(head parser.TreeNode) chan ExportData {
+func runProcessWithExportStore(head parser.TreeNode, filename string) (chan Result, ExportStorage) {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
-	exportChan := make(chan ExportData)
+	exportStorage := &ExportFileStore{filename}
 
 	context := &Context{}
-	processor := &NodeProcessor{Context: context, exportChan: exportChan}
-	go processor.Process(nodeChan, make(chan Result))
+	processor := &NodeProcessor{Context: context, ExportStore: exportStorage}
+	resultChan := make(chan Result)
+	go processor.Process(nodeChan, resultChan)
 
-	return exportChan
+	return resultChan, exportStorage
 }
 
 func runProcessWithContext(head parser.TreeNode, context *Context) chan Result {
@@ -830,6 +994,17 @@ func runProcessWithContext(head parser.TreeNode, context *Context) chan Result {
 	resultChan := make(chan Result)
 
 	processor := NodeProcessor{Context: context}
+	go processor.Process(nodeChan, resultChan)
+
+	return resultChan
+}
+
+func runProcessWithGetPathFunc(head parser.TreeNode, getPathFunc func(string) []string) chan Result {
+	nodeChan := getNodeChan([]parser.TreeNode{head})
+	resultChan := make(chan Result)
+
+	processor := NodeProcessor{Context: &Context{}}
+	processor.PathReader = getPathFunc
 	go processor.Process(nodeChan, resultChan)
 
 	return resultChan
@@ -914,6 +1089,24 @@ func generateElseIfTokens(conditions, bodies [][]lexer.Token, includeEnd bool) [
 	}
 
 	return elseIfTokens
+}
 
-	return elseIfTokens
+func generateForLoopTokens(condition []lexer.Token, body []lexer.Token) []lexer.Token {
+	forLoopTokens := []lexer.Token{
+		lexer.ForToken{},
+		lexer.SymbolToken{Symbol: "("},
+	}
+
+	forLoopTokens = append(forLoopTokens, condition...)
+	forLoopTokens = append(forLoopTokens, lexer.SymbolToken{Symbol: ")"})
+	for _, bodyTok := range body {
+		forLoopTokens = append(forLoopTokens, bodyTok, lexer.SymbolToken{Symbol: ";"})
+	}
+
+	return append(forLoopTokens, lexer.EndToken{})
+}
+
+func getTestPathReader(numPaths int) func(string) []string {
+	paths := make([]string, numPaths)
+	return func(string) []string { return paths }
 }
