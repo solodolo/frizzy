@@ -18,14 +18,6 @@ type NodeProcessor struct {
 	ExportStore ExportStorage
 }
 
-// ExportData represents a piece of data that is
-// exported during this processing run to be made
-// available to other processing runs
-type ExportData struct {
-	Key   string
-	Value Result
-}
-
 // Process reads each node from nodeChan and walks through its tree
 // turning parse nodes into output
 func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, resultChan chan<- Result) {
