@@ -8,21 +8,51 @@ import (
 	"mettlach.codes/frizzy/parser"
 )
 
+func PrintRaw(args ...Result) Result {
+	return Print(args[0])
+}
+
+func PaginateRaw(args ...Result) Result {
+	// TODO: replace nils with errors
+	if len(args) < 3 {
+		return nil
+	}
+
+	var filePathString, templatePathString string
+	var numPerPageInt int
+
+	if filePath, ok := args[0].(StringResult); ok {
+		filePathString = string(filePath)
+	} else {
+		return nil
+	}
+
+	if templatePath, ok := args[1].(StringResult); ok {
+		templatePathString = string(templatePath)
+	} else {
+		return nil
+	}
+
+	if numPerPage, ok := args[2].(IntResult); ok {
+		numPerPageInt = int(numPerPage)
+	} else {
+		return nil
+	}
+
+	return Paginate(filePathString, templatePathString, numPerPageInt)
+}
+
 func Print(result Result) StringResult {
 	return StringResult(result.String())
 }
 
-func Paginate(filePath, templatePath, numPerPage Result) StringResult {
-	filePathString := string(filePath.(StringResult))
-	templatePathString := string(templatePath.(StringResult))
-	numPerPageInt := int(numPerPage.(IntResult))
-
-	contentPaths := file.GetContentPaths(filePathString)
-	numPages := math.Ceil(float64(len(contentPaths)) / float64(numPerPageInt))
-	paginationContexts := buildPaginationContexts(contentPaths, int(numPages), numPerPageInt)
+func Paginate(filePath, templatePath string, numPerPage int) StringResult {
+	contentPaths := file.GetContentPaths(filePath)
+	numPages := math.Ceil(float64(len(contentPaths)) / float64(numPerPage))
+	paginationContexts := buildPaginationContexts(contentPaths, int(numPages), numPerPage)
 
 	templateCache := parser.GetTemplateCache()
-	templateNodes := templateCache.Get(templatePathString)
+	templateNodes := templateCache.Get(templatePath)
 	for _, paginationContext := range paginationContexts {
 		nodeChan := make(chan parser.TreeNode)
 		go func(nodeChan chan parser.TreeNode, templateNodes *[]parser.TreeNode) {
