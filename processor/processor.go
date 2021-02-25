@@ -146,7 +146,7 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 			processedArgs = append(processedArgs, receiver.processHeadNode(arg))
 		}
 
-		result, ok := receiver.FunctionModule.CallFunction(funcName, processedArgs...)
+		result, ok := receiver.callFunction(funcName, processedArgs)
 
 		if ok {
 			return result
@@ -187,8 +187,6 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 	default:
 		return StringResult("")
 	}
-
-	return nil
 }
 
 // Returns the left side of the assignment as a string and the right as a processed Result
@@ -234,6 +232,15 @@ func (receiver *NodeProcessor) doGetContext(filePath string) *Context {
 	}
 
 	return &Context{}
+}
+
+func (receiver *NodeProcessor) callFunction(funcName string, args []Result) (Result, bool) {
+	if receiver.FunctionModule == nil {
+		module := NewBuiltinFunctionModule()
+		receiver.FunctionModule = &module
+	}
+
+	return receiver.FunctionModule.CallFunction(funcName, args...)
 }
 
 func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, loopIdent parser.IdentParseNode, contexts []*Context) StringResult {
