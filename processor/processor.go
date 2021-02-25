@@ -13,9 +13,10 @@ import (
 // channel to receive export assignments during
 // this processing run
 type NodeProcessor struct {
-	Context     *Context
-	PathReader  file.GetPathFunc
-	ExportStore ExportStorage
+	Context        *Context
+	PathReader     file.GetPathFunc
+	ExportStore    ExportStorage
+	FunctionModule FunctionModule
 }
 
 // Process reads each node from nodeChan and walks through its tree
@@ -145,14 +146,14 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 			processedArgs = append(processedArgs, receiver.processHeadNode(arg))
 		}
 
-		switch funcName {
-		case "print":
-			return Print(processedArgs[0])
-		case "Paginate":
-			return Paginate(processedArgs[0], processedArgs[1], processedArgs[2])
-		default:
-			log.Fatalf("call to undefined function %q", funcName)
+		result, ok := receiver.FunctionModule.CallFunction(funcName, processedArgs...)
+
+		if ok {
+			return result
 		}
+
+		// TODO: Replace with error
+		return nil
 
 	case *parser.StringParseNode:
 		return StringResult(typedNode.Value)
