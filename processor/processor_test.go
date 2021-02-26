@@ -1004,6 +1004,25 @@ func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
 	}
 }
 
+func TestPrintFuncCallReturnsValue(t *testing.T) {
+	expected := "1"
+	head := generateTree([]lexer.Token{
+		lexer.IdentToken{Identifier: "print"},
+		lexer.SymbolToken{Symbol: "("},
+		lexer.NumToken{Num: "6423"},
+		lexer.AddOpToken{Operator: "-"},
+		lexer.NumToken{Num: "6422"},
+		lexer.SymbolToken{Symbol: ")"},
+	})
+
+	resultChan := runProcess(head)
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected print result to be %q, got %q", expected, result)
+	}
+}
+
 func runProcess(head parser.TreeNode) chan Result {
 	return runProcessWithContext(head, nil)
 }
