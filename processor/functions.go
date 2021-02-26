@@ -39,17 +39,16 @@ func PaginateRaw(args ...Result) Result {
 		return nil
 	}
 
-	return Paginate(filePathString, templatePathString, numPerPageInt)
+	contentPaths := file.GetContentPaths(filePathString)
+	return Paginate(contentPaths, templatePathString, numPerPageInt)
 }
 
 func Print(result Result) StringResult {
 	return StringResult(result.String())
 }
 
-func Paginate(filePath, templatePath string, numPerPage int) StringResult {
-	contentPaths := file.GetContentPaths(filePath)
-	numPages := math.Ceil(float64(len(contentPaths)) / float64(numPerPage))
-	paginationContexts := buildPaginationContexts(contentPaths, int(numPages), numPerPage)
+func Paginate(contentPaths []string, templatePath string, numPerPage int) StringResult {
+	paginationContexts := buildPaginationContexts(contentPaths, numPerPage)
 
 	templateCache := parser.GetTemplateCache()
 	templateNodes := templateCache.Get(templatePath)
@@ -68,7 +67,12 @@ func Paginate(filePath, templatePath string, numPerPage int) StringResult {
 	return StringResult("")
 }
 
-func buildPaginationContexts(contentPaths []string, numPages, numPerPage int) []*Context {
+func buildPaginationContexts(contentPaths []string, numPerPage int) []*Context {
+	if numPerPage == 0 {
+		return []*Context{}
+	}
+
+	numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
 	ret := make([]*Context, numPages)
 	exportStore := GetExportStore()
 	// for each page
@@ -83,7 +87,8 @@ func buildPaginationContexts(contentPaths []string, numPages, numPerPage int) []
 
 		// get the paths of the content files that will be on this page
 		offset := (curPage - 1) * numPerPage
-		contentPathsOnPage := contentPaths[offset : offset+numPerPage]
+		last := minInt(len(contentPaths), offset+numPerPage)
+		contentPathsOnPage := contentPaths[offset:last]
 
 		// get the context for each content file on this page
 		contextsOnPage := &Context{}
@@ -99,4 +104,11 @@ func buildPaginationContexts(contentPaths []string, numPages, numPerPage int) []
 	}
 
 	return ret
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
