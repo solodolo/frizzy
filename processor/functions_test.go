@@ -16,6 +16,7 @@ func TestBuildPaginationContextsContainsCorrectNumberOfContexts(t *testing.T) {
 		{2, 3, 1},
 		{2, 4000, 1},
 		{100, 11, 10},
+		{1, -3, 0},
 	}
 
 	for _, test := range tests {
