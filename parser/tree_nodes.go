@@ -137,15 +137,6 @@ func (node IdentParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
 }
 
-type VarParseNode struct {
-	Value string
-	ParseNode
-}
-
-func (node VarParseNode) String() string {
-	return fmt.Sprintf("%T: %s", node, node.Value)
-}
-
 type BlockParseNode struct {
 	Value string
 	ParseNode

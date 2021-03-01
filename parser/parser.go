@@ -191,9 +191,6 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 	case lexer.IdentToken, lexer.ForToken, lexer.InToken, lexer.IfToken, lexer.ElseIfToken, lexer.ElseToken, lexer.EndToken:
 		ident := tok.GetValue()
 		node = &IdentParseNode{Value: ident}
-	case lexer.VarToken:
-		varName := tok.Variable
-		node = &VarParseNode{Value: varName}
 	case lexer.BlockToken:
 		block := tok.Block
 		node = &BlockParseNode{Value: block}
@@ -232,6 +229,8 @@ func getNonTerminalNodeForReduction(reduction string) TreeNode {
 		return &IfConditionalParseNode{}
 	case "X":
 		return &ElseIfListParseNode{}
+	case "Y":
+		return &VarNameParseNode{}
 	default:
 		return &NonTerminalParseNode{Value: reduction}
 	}
