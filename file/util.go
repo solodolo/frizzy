@@ -15,8 +15,9 @@ type GetPathFunc func(subpath string) []string
 // in the project's <contentroot>/<subpath> directory
 func GetContentPaths(subpath string) []string {
 	contentDirs := []string{}
+	config := config.GetLoadedConfig()
 	// assumes GetContentPath returns an absolute path
-	walkPath := filepath.Join(config.GetContentPath(), subpath)
+	walkPath := filepath.Join(config.ContentPath, subpath)
 
 	filepath.Walk(walkPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
