@@ -42,7 +42,7 @@ var assignOp = regexp.MustCompile(`^=`)
 var unaryOp = regexp.MustCompile(`^!`)
 
 var identExp = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-var varExp = regexp.MustCompile(`^([a-zA-Z]+[a-zA-Z0-9_]*)\.[a-zA-Z][a-zA-Z0-9_]*`)
+
 var strExp = regexp.MustCompile(`^"[^"]*"`)
 var numExp = regexp.MustCompile(`^[0-9]+`)
 
@@ -56,7 +56,7 @@ var endExp = regexp.MustCompile(`^end`)
 
 var boolExp = regexp.MustCompile(`^(true|false)`)
 
-var symbolExp = regexp.MustCompile(`^[;(),]`)
+var symbolExp = regexp.MustCompile(`^[;(),\.]`)
 
 var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
 
@@ -317,11 +317,6 @@ func getLineTokens(line string, lineNum int) []Token {
 			_, remaining := extractToken(loc, line)
 			newLine = remaining
 			token := EndToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := varExp.FindStringIndex(line); loc != nil {
-			variable, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := VarToken{Variable: variable, TokenData: tokData}
 			tokens = append(tokens, token)
 		} else if loc := identExp.FindStringIndex(line); loc != nil {
 			// Ident should come after more specific tokens like bool and var

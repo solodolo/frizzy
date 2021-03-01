@@ -209,21 +209,6 @@ func (token EndToken) GetGrammarSymbol() string {
 	return "END"
 }
 
-// Represents a variable like
-// post.title
-type VarToken struct {
-	Variable string
-	TokenData
-}
-
-func (token VarToken) GetValue() string {
-	return token.Variable
-}
-
-func (token VarToken) GetGrammarSymbol() string {
-	return "VAR_NAME"
-}
-
 // Represents a string in double quotes like
 // "foo", "0129", "bl()#$)(!@"
 type StrToken struct {
