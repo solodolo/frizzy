@@ -10,7 +10,7 @@ import (
 // ExportStorage represents a type that can store results
 // into a context and return that context
 type ExportStorage interface {
-	Insert(string, Result)
+	Insert([]string, Result)
 	GetContext() *Context
 	GetFileContext(string) *Context
 }
@@ -23,9 +23,9 @@ type ExportFileStore struct {
 
 // Insert inserts the key, value pair of the export context
 // represented by filePath
-func (receiver *ExportFileStore) Insert(contextKey string, value Result) {
+func (receiver *ExportFileStore) Insert(contextKeys []string, value Result) {
 	exportStore := GetExportStore()
-	exportStore.Insert(receiver.filePath, contextKey, value)
+	exportStore.Insert(receiver.filePath, contextKeys, value)
 }
 
 // GetContext returns the export context associated with this
@@ -65,17 +65,15 @@ var mut sync.Mutex
 
 // Insert inserts the key, value pair of the export context
 // represented by filename
-func (receiver *ExportStore) Insert(filename, contextKey string, value Result) {
+func (receiver *ExportStore) Insert(filename string, contextKeys []string, value Result) {
 	mut.Lock()
 	defer mut.Unlock()
 
-	if _, ok := receiver.exports[filename]; ok {
-		context := receiver.exports[filename]
-		(*context)[contextKey] = ContextNode{result: value}
-	} else {
-		val := ContextNode{result: value}
-		receiver.exports[filename] = &Context{contextKey: val}
+	if _, ok := receiver.exports[filename]; !ok {
+		receiver.exports[filename] = &Context{}
 	}
+
+	receiver.exports[filename].Insert(contextKeys, value)
 }
 
 // Get returns the export context of the given filename
