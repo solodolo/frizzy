@@ -617,7 +617,9 @@ func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 
 func TestAssignmentAddsValueIntoStore(t *testing.T) {
 	partial := []lexer.Token{
-		lexer.VarToken{Variable: "foo.title"},
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "title"},
 		lexer.AssignOpToken{Operator: "="},
 	}
 
@@ -641,9 +643,9 @@ func TestAssignmentAddsValueIntoStore(t *testing.T) {
 }
 
 func TestProcessedVarNodeReturnsContextValue(t *testing.T) {
-	context := &Context{"foo": ContextNode{result: StringResult("val")}}
+	context := &Context{"foo": &ContextNode{result: StringResult("val")}}
 	head := generateTree([]lexer.Token{
-		lexer.VarToken{Variable: "foo"},
+		lexer.IdentToken{Identifier: "foo"},
 	})
 
 	resultChan := runProcessWithContext(head, context)
@@ -657,14 +659,18 @@ func TestProcessedVarNodeReturnsContextValue(t *testing.T) {
 func TestProcessedVarNodeReturnsNestedContextValue(t *testing.T) {
 	expectedResult := StringResult("fizzbuzz")
 	context := &Context{
-		"foo": ContextNode{child: &Context{
-			"bar": ContextNode{child: &Context{
-				"baz": ContextNode{result: expectedResult},
+		"foo": &ContextNode{child: &Context{
+			"bar": &ContextNode{child: &Context{
+				"baz": &ContextNode{result: expectedResult},
 			}},
 		}},
 	}
 	head := generateTree([]lexer.Token{
-		lexer.VarToken{Variable: "foo.bar.baz"},
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "bar"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "baz"},
 	})
 
 	resultChan := runProcessWithContext(head, context)
@@ -679,15 +685,17 @@ func TestProcessedVarNodeReturnsContainerValue(t *testing.T) {
 	expectedResult := StringResult(fmt.Sprintf("%T", ContainerResult{}))
 
 	context := &Context{
-		"foo": ContextNode{child: &Context{
-			"bar": ContextNode{child: &Context{
-				"baz": ContextNode{result: expectedResult},
+		"foo": &ContextNode{child: &Context{
+			"bar": &ContextNode{child: &Context{
+				"baz": &ContextNode{result: expectedResult},
 			}},
 		}},
 	}
 
 	head := generateTree([]lexer.Token{
-		lexer.VarToken{Variable: "foo.bar"},
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "bar"},
 	})
 
 	resultChan := runProcessWithContext(head, context)
@@ -913,8 +921,8 @@ func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
 		lexer.StrToken{Str: "bar"},
 	}
 
-	body := []lexer.Token{
-		lexer.StrToken{Str: bodyText},
+	body := [][]lexer.Token{
+		{lexer.StrToken{Str: bodyText}},
 	}
 
 	expected := ""
@@ -941,14 +949,18 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 		lexer.StrToken{Str: "bar"},
 	}
 
-	body := []lexer.Token{
-		lexer.VarToken{Variable: "foo.date"},
+	body := [][]lexer.Token{
+		{
+			lexer.IdentToken{Identifier: "foo"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "date"},
+		},
 	}
 
 	expected := ""
 	pathReader := getTestPathReader(3)
 	exportStore := &ExportFileStore{filePath: ""}
-	exportStore.Insert("date", StringResult("some-date-someday"))
+	exportStore.Insert([]string{"date"}, StringResult("some-date-someday"))
 
 	for i := 0; i < len(pathReader("")); i++ {
 		expected += "some-date-someday" + "\n"
@@ -968,16 +980,16 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
 	expected := "first\nsecond\nthird\n"
 	context := &Context{
-		"page": ContextNode{child: &Context{
-			"content": ContextNode{child: &Context{
-				"0": ContextNode{child: &Context{
-					"title": ContextNode{result: StringResult("first")},
+		"page": &ContextNode{child: &Context{
+			"content": &ContextNode{child: &Context{
+				"0": &ContextNode{child: &Context{
+					"title": &ContextNode{result: StringResult("first")},
 				}},
-				"1": ContextNode{child: &Context{
-					"title": ContextNode{result: StringResult("second")},
+				"1": &ContextNode{child: &Context{
+					"title": &ContextNode{result: StringResult("second")},
 				}},
-				"2": ContextNode{child: &Context{
-					"title": ContextNode{result: StringResult("third")},
+				"2": &ContextNode{child: &Context{
+					"title": &ContextNode{result: StringResult("third")},
 				}},
 			}},
 		}},
@@ -986,11 +998,17 @@ func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
 	condition := []lexer.Token{
 		lexer.IdentToken{Identifier: "page"},
 		lexer.InToken{},
-		lexer.VarToken{Variable: "page.content"},
+		lexer.IdentToken{Identifier: "page"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "content"},
 	}
 
-	body := []lexer.Token{
-		lexer.VarToken{Variable: "page.title"},
+	body := [][]lexer.Token{
+		{
+			lexer.IdentToken{Identifier: "page"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "title"},
+		},
 	}
 
 	forToks := generateForLoopTokens(condition, body)
@@ -1141,7 +1159,7 @@ func generateElseIfTokens(conditions, bodies [][]lexer.Token, includeEnd bool) [
 	return elseIfTokens
 }
 
-func generateForLoopTokens(condition []lexer.Token, body []lexer.Token) []lexer.Token {
+func generateForLoopTokens(condition []lexer.Token, body [][]lexer.Token) []lexer.Token {
 	forLoopTokens := []lexer.Token{
 		lexer.ForToken{},
 		lexer.SymbolToken{Symbol: "("},
@@ -1149,8 +1167,9 @@ func generateForLoopTokens(condition []lexer.Token, body []lexer.Token) []lexer.
 
 	forLoopTokens = append(forLoopTokens, condition...)
 	forLoopTokens = append(forLoopTokens, lexer.SymbolToken{Symbol: ")"})
-	for _, bodyTok := range body {
-		forLoopTokens = append(forLoopTokens, bodyTok, lexer.SymbolToken{Symbol: ";"})
+	for _, bodyToks := range body {
+		forLoopTokens = append(forLoopTokens, bodyToks...)
+		forLoopTokens = append(forLoopTokens, lexer.SymbolToken{Symbol: ";"})
 	}
 
 	return append(forLoopTokens, lexer.EndToken{})

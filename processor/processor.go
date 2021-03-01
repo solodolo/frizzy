@@ -37,11 +37,11 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		children := head.GetChildren()
 
 		if typedNode.IsAssignment() {
-			if name, right, err := receiver.getAssignmentKeyAndValue(children); err == nil {
-				(*receiver.Context)[name] = ContextNode{result: right}
-				receiver.doExport(name, right)
+			if keys, right, err := receiver.getAssignmentKeysAndValue(children); err == nil {
+				receiver.insertInContext(keys, right)
+				receiver.doExport(keys, right)
 			} else {
-				log.Fatal(err)
+				log.Fatal(fmt.Sprintf("invalid assignment: %s", err))
 			}
 
 			return StringResult("")
@@ -161,44 +161,36 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		return IntResult(typedNode.Value)
 	case *parser.BoolParseNode:
 		return BoolResult(typedNode.Value)
-	case *parser.VarParseNode:
-		contextKey := typedNode.Value
-		keys := strings.Split(contextKey, ".")
+	case *parser.VarNameParseNode:
+		keys := typedNode.GetVarNameParts()
+		if node, ok := receiver.lookupInContext(keys); ok {
 
-		// loop through each key and recursively look up the next level
-		current := ContextNode{child: receiver.Context}
-		for _, key := range keys {
-			contextNode, exists := current.At(key)
-
-			if !exists {
-				log.Fatalf("key %q not found in context", contextKey)
+			// current is the last context node so we can
+			// return its result or its further nested context
+			if node.HasResult() {
+				return node.result
 			}
 
-			current = contextNode
+			return ContainerResult{node.child}
 		}
 
-		// current is the last context node so we can
-		// return its result or its further nested context
-		if current.HasResult() {
-			return current.result
-		}
-
-		return ContainerResult{current.child}
+		log.Fatalf("context lookup failed: %q", strings.Join(keys, "."))
+		return nil
 	default:
 		return StringResult("")
 	}
 }
 
 // Returns the left side of the assignment as a string and the right as a processed Result
-func (receiver *NodeProcessor) getAssignmentKeyAndValue(ops []parser.TreeNode) (string, Result, error) {
-	if left, ok := ops[0].(*parser.VarParseNode); ok {
-		name := left.Value
+func (receiver *NodeProcessor) getAssignmentKeysAndValue(ops []parser.TreeNode) ([]string, Result, error) {
+	if left, ok := ops[0].(*parser.VarNameParseNode); ok {
+		nameParts := left.GetVarNameParts()
 		right := receiver.processHeadNode(ops[len(ops)-1])
 
-		return name, right, nil
+		return nameParts, right, nil
 	}
 
-	return "", nil, fmt.Errorf("invalid assignment to %T", ops[0])
+	return nil, nil, fmt.Errorf("invalid assignment to %T", ops[0])
 }
 
 // Returns the operator and operands of the binary operation represented in ops
@@ -220,9 +212,9 @@ func (receiver *NodeProcessor) getUnaryOperatorAndOperand(ops []parser.TreeNode)
 	return right, string(operator)
 }
 
-func (receiver *NodeProcessor) doExport(key string, value Result) {
+func (receiver *NodeProcessor) doExport(keys []string, value Result) {
 	if receiver.ExportStore != nil {
-		receiver.ExportStore.Insert(key, value)
+		receiver.ExportStore.Insert(keys, value)
 	}
 }
 
@@ -253,7 +245,7 @@ func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, loo
 	context := receiver.Context
 	merged := &Context{}
 	for _, inputContext := range contexts {
-		(*merged)[loopIdent.Value] = ContextNode{child: context.Merge(inputContext)}
+		(*merged)[loopIdent.Value] = &ContextNode{child: context.Merge(inputContext)}
 		loopProcessor := &NodeProcessor{Context: merged}
 		bodyText += loopProcessor.processHeadNode(bodyNodes[0]).String() + "\n"
 	}
@@ -269,6 +261,14 @@ func (receiver *NodeProcessor) getPaths(subpath string) []string {
 		pathReader = file.GetContentPaths
 	}
 	return pathReader(subpath)
+}
+
+func (receiver *NodeProcessor) lookupInContext(keys []string) (*ContextNode, bool) {
+	return receiver.Context.AtNested(keys)
+}
+
+func (receiver *NodeProcessor) insertInContext(keys []string, value Result) {
+	receiver.Context.Insert(keys, value)
 }
 
 func processAddition(left, right Result, operator string) (Result, error) {
