@@ -43,7 +43,7 @@ var unaryOp = regexp.MustCompile(`^!`)
 
 var identExp = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
 
-var strExp = regexp.MustCompile(`^"[^"]*"`)
+var strExp = regexp.MustCompile(`(?m)^"[^"]*"`)
 var numExp = regexp.MustCompile(`^[0-9]+`)
 
 var ifExp = regexp.MustCompile(`^if`)
@@ -67,8 +67,7 @@ type InputLine struct {
 	lineNum int
 }
 
-// Runs through file and creates a stream of tokens
-// from the input
+// Lex runs through a file line-by-line and turns each one into a stream of tokens
 func Lex(scanner *bufio.Scanner, tokChan chan<- []Token, errChan chan<- error) {
 	defer close(errChan)
 	// Read line by line
@@ -105,8 +104,9 @@ func getLines(scanner *bufio.Scanner, lineChan chan<- InputLine, errChan chan<- 
 
 	lineNum := 1
 	for scanner.Scan() {
+		rawLine := scanner.Text() + "\n"
 		lineChan <- InputLine{
-			line:    scanner.Text(),
+			line:    rawLine,
 			lineNum: lineNum,
 		}
 
@@ -156,10 +156,10 @@ func processLine(line InputLine, openBlock bool) ([]Token, bool) {
 * {{abcde}} => 0,9
 * abc{{de}} => 3,9
 * ab{{cd}}e => 2,8
-* {{abcde => 0,7
-* abcde}} => 0,7
-* a{{bcde => 1,7
-* abcd}}e => 0,6 */
+* {{abcde => 0,-1
+* abcde}} => -1,7
+* a{{bcde => 1,-1
+* abcd}}e => -1,6 */
 func getBlockIndices(line string) (int, int) {
 	openingBlocks := []string{"{{:", "{{"}
 	openingIndex, closingIndex := -1, -1
@@ -211,8 +211,11 @@ func partitionLine(line string, start, end int, openBlock bool) (string, string,
 // the current line
 func isBlockStillOpen(start, end int, openBlock bool) bool {
 	if openBlock && end != -1 {
+		// if the block is already open and there is a closing block
 		openBlock = false
 	} else if !openBlock && start != -1 && end == -1 {
+		// if the block is not already open and
+		// there is a start block and no end block
 		openBlock = true
 	}
 
@@ -245,9 +248,8 @@ func getLineTokens(line string, lineNum int) []Token {
 			operator, remaining := extractToken(loc, line)
 			newLine = remaining
 
-			lastTok := tokens[len(tokens)-1]
 			var token Token
-			if _, ok := lastTok.(NumToken); !ok && operator == "-" {
+			if operator == "-" && isActuallyUnary(tokens) {
 				token = UnaryOpToken{Operator: operator, TokenData: tokData}
 			} else {
 				token = AddOpToken{Operator: operator, TokenData: tokData}
@@ -346,7 +348,32 @@ func getLineTokens(line string, lineNum int) []Token {
 		col += len(line) - len(newLine)
 		line = newLine
 	}
+
+	if shouldAppendEOL(tokens) {
+		tokens = append(tokens, EOLToken{})
+	}
 	return tokens
+}
+
+func shouldAppendEOL(tokens []Token) bool {
+	if len(tokens) == 0 {
+		return false
+	}
+
+	bt, ok := tokens[len(tokens)-1].(BlockToken)
+	return ok && bt.Block == "}}"
+}
+
+// Checks if a subtraction sign is actually a negative unary
+// operator instead of a subtraction
+// This smells bad
+func isActuallyUnary(tokens []Token) bool {
+	if len(tokens) == 0 {
+		return true
+	} else if _, ok := tokens[len(tokens)-1].(NumToken); !ok {
+		return true
+	}
+	return false
 }
 
 // Extract the token between [loc[0],loc[1]) from the line
