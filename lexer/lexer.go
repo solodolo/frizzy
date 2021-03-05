@@ -2,9 +2,7 @@ package lexer
 
 import (
 	"bufio"
-	"fmt"
 	"regexp"
-	"strings"
 )
 
 // Theses are the tokens of our grammar
@@ -62,323 +60,278 @@ var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
 
 var whitespaceExp = regexp.MustCompile(`^\s+`)
 
+// Lexer states
+type LexerState int
+
+const (
+	passthrough LexerState = iota
+	inBlock
+	inStr
+)
+
 type InputLine struct {
 	line    string
 	lineNum int
 }
 
-// Lex runs through a file line-by-line and turns each one into a stream of tokens
-func Lex(scanner *bufio.Scanner, tokChan chan<- []Token, errChan chan<- error) {
-	defer close(errChan)
-	// Read line by line
-	scanner.Split(bufio.ScanLines)
+// Lexer turns a stream of text lines into a stream of tokens
+type Lexer struct {
+	lineChan <-chan InputLine
+	state    LexerState
+}
+
+func (receiver *Lexer) Lex(inputReader *bufio.Reader) (<-chan []Token, <-chan error) {
+	inputBuffer := bufio.NewScanner(inputReader)
+	inputBuffer.Split(bufio.ScanLines)
+
+	lineChan, lineErrChan := readLines(inputBuffer)
+
+	receiver.lineChan = lineChan
+	receiver.state = passthrough
+
+	tokChan, tokErrChan := receiver.processLines()
+	lexerErrChan := make(chan error, 1)
+
+	go func() {
+		defer close(lexerErrChan)
+
+		select {
+		case err := <-lineErrChan:
+			lexerErrChan <- err
+		case err := <-tokErrChan:
+			lexerErrChan <- err
+		}
+	}()
+
+	return tokChan, lexerErrChan
+}
+
+func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
 	lineChan := make(chan InputLine)
-	lineErrChan := make(chan error)
+	errChan := make(chan error, 1)
 
-	go getLines(scanner, lineChan, lineErrChan)
-	go tokenizeLines(lineChan, tokChan)
+	go func() {
+		defer close(lineChan)
+		defer close(errChan)
 
-	err := <-lineErrChan
-	errChan <- err
-}
-
-// Reads lines from lineChan and converts each one into a slice of tokens.
-// These slices are sent to tokChan
-func tokenizeLines(lineChan <-chan InputLine, tokChan chan<- []Token) {
-	defer close(tokChan)
-	openBlock := false
-
-	for line := range lineChan {
-		tokens, stillOpen := processLine(line, openBlock)
-		openBlock = stillOpen
-		tokChan <- tokens
-	}
-}
-
-// Reads lines from scanner and sends them to the string channel.
-// Any errors will be sent to error channel or nil once everything
-// has been read.
-func getLines(scanner *bufio.Scanner, lineChan chan<- InputLine, errChan chan<- error) {
-	defer close(lineChan)
-	defer close(errChan)
-
-	lineNum := 1
-	for scanner.Scan() {
-		rawLine := scanner.Text() + "\n"
-		lineChan <- InputLine{
-			line:    rawLine,
-			lineNum: lineNum,
+		i := 1
+		for inputBuffer.Scan() {
+			line := inputBuffer.Text() + "\n"
+			lineChan <- InputLine{line: line, lineNum: i}
+			i++
 		}
 
-		lineNum++
-	}
-
-	if err := scanner.Err(); err != nil {
-		errChan <- fmt.Errorf("error reading lines for lexing: %s", err.Error())
-	} else {
-		errChan <- nil
-	}
-}
-
-// All text that comes before a {{: or {{ is passed through
-// and all text that comes after the corresponding }} is
-// also passed through
-func processLine(line InputLine, openBlock bool) ([]Token, bool) {
-	// Check for indices of open and close blocks
-	start, end := getBlockIndices(line.line)
-	// Get text that should be passed through vs fully tokenized
-	preBlock, inBlock, postBlock := partitionLine(line.line, start, end, openBlock)
-
-	lineTokens := []Token{}
-
-	// If there is text before block, pass it through
-	if len(preBlock) > 0 {
-		tokData := TokenData{LineNum: line.lineNum, LineCol: 0}
-		token := PassthroughToken{Value: preBlock, TokenData: tokData}
-		lineTokens = append(lineTokens, token)
-	}
-
-	// Tokenize the text in the blocks including any open/close blocks
-	lineTokens = append(lineTokens, getLineTokens(inBlock, line.lineNum)...)
-
-	// If there is text after block, pass it through
-	if len(postBlock) > 0 {
-		tokData := TokenData{LineNum: line.lineNum, LineCol: len(preBlock) + len(inBlock)}
-		token := PassthroughToken{Value: postBlock, TokenData: tokData}
-		lineTokens = append(lineTokens, token)
-	}
-
-	return lineTokens, isBlockStillOpen(start, end, openBlock)
-}
-
-/* Returns the indices for the open and close blocks in line
-* Examples
-* {{abcde}} => 0,9
-* abc{{de}} => 3,9
-* ab{{cd}}e => 2,8
-* {{abcde => 0,-1
-* abcde}} => -1,7
-* a{{bcde => 1,-1
-* abcd}}e => -1,6 */
-func getBlockIndices(line string) (int, int) {
-	openingBlocks := []string{"{{:", "{{"}
-	openingIndex, closingIndex := -1, -1
-
-	for _, block := range openingBlocks {
-		if i := strings.Index(line, block); i != -1 {
-			openingIndex = i
-			break
+		if inputBuffer.Err() != nil {
+			errChan <- inputBuffer.Err()
 		}
-	}
+	}()
 
-	if i := strings.Index(line, "}}"); i != -1 {
-		closingIndex = i + 2 // + 2 to include '}}'
-	}
-
-	return openingIndex, closingIndex
+	return lineChan, errChan
 }
 
-// Partitions the line into text before opening block text in block and
-// text after closing block.
-// Considers if there was an open block in some previous line.
-func partitionLine(line string, start, end int, openBlock bool) (string, string, string) {
-	var preBlock, inBlock, postBlock string
-	if openBlock {
-		if end == -1 {
-			inBlock = line
-		} else {
-			inBlock = line[:end]
-			postBlock = line[end:]
-		}
-	} else {
-		if start == -1 {
-			preBlock = line
-		} else if start != -1 && end != -1 {
-			preBlock = line[:start]
-			inBlock = line[start:end]
-			postBlock = line[end:]
-		} else if start != -1 {
-			preBlock = line[:start]
-			inBlock = line[start:]
-		}
+func (receiver *Lexer) getLineToProcess(remaining InputLine) (InputLine, bool) {
+	if remaining.line == "" {
+		newLine, ok := <-receiver.lineChan
+		return newLine, ok
 	}
 
-	return preBlock, inBlock, postBlock
+	return remaining, true
 }
 
-// Determines the new open block status based on current
-// status and the presence of open and/or close blocks in
-// the current line
-func isBlockStillOpen(start, end int, openBlock bool) bool {
-	if openBlock && end != -1 {
-		// if the block is already open and there is a closing block
-		openBlock = false
-	} else if !openBlock && start != -1 && end == -1 {
-		// if the block is not already open and
-		// there is a start block and no end block
-		openBlock = true
-	}
+func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
+	tokChan := make(chan []Token)
+	errChan := make(chan error, 1)
 
-	return openBlock
-}
+	go func(receiver *Lexer) {
+		defer close(tokChan)
+		defer close(errChan)
 
-// Check the front of the line for each of the tokens
-// When found, erase found token from line and repeat until
-// the line is empty.
-// Assumes the text in line is within a block.
-func getLineTokens(line string, lineNum int) []Token {
-	tokens := make([]Token, 0)
-
-	col := 1
-	// Check each regex against the line
-	for len(line) > 0 {
-		// Ignore whitespace
-		woWhitespace := whitespaceExp.ReplaceAllString(line, "")
-		col += len(line) - len(woWhitespace)
-		line = woWhitespace
-
-		tokData := TokenData{LineNum: lineNum, LineCol: col}
-		newLine := ""
-		if loc := multOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := MultOpToken{Operator: operator, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := addOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-
-			var token Token
-			if operator == "-" && isActuallyUnary(tokens) {
-				token = UnaryOpToken{Operator: operator, TokenData: tokData}
-			} else {
-				token = AddOpToken{Operator: operator, TokenData: tokData}
+		inputLine, ok := receiver.getLineToProcess(InputLine{})
+		for ok {
+			if receiver.state == passthrough {
+				tok, remaining := receiver.processPassthroughTokens(inputLine)
+				tokChan <- []Token{tok}
+				inputLine = remaining
+			} else if receiver.state == inBlock {
+				toks, remaining := receiver.processTokensInBlock(inputLine)
+				tokChan <- toks
+				inputLine = remaining
 			}
-			tokens = append(tokens, token)
-		} else if loc := relOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := RelOpToken{Operator: operator, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := logicOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := LogicOpToken{Operator: operator, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := assignOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := AssignOpToken{Operator: operator, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := unaryOp.FindStringIndex(line); loc != nil {
-			operator, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := UnaryOpToken{Operator: operator, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := strExp.FindStringIndex(line); loc != nil {
-			str, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := StrToken{Str: str, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := numExp.FindStringIndex(line); loc != nil {
-			num, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := NumToken{Num: num, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := boolExp.FindStringIndex(line); loc != nil {
-			boolVal, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := BoolToken{Value: boolVal, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := ifExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := IfToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := elseIfExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := ElseIfToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := elseExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := ElseToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := forExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := ForToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := inExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := InToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := endExp.FindStringIndex(line); loc != nil {
-			_, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := EndToken{TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := identExp.FindStringIndex(line); loc != nil {
-			// Ident should come after more specific tokens like bool and var
-			ident, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := IdentToken{Identifier: ident, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := symbolExp.FindStringIndex(line); loc != nil {
-			symbol, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := SymbolToken{Symbol: symbol, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if loc := blockExp.FindStringIndex(line); loc != nil {
-			block, remaining := extractToken(loc, line)
-			newLine = remaining
-			token := BlockToken{Block: block, TokenData: tokData}
-			tokens = append(tokens, token)
-		} else if len(line) > 0 {
-			// No match so just pass through the char at the front
-			// of the line
-			val, remaining := extractToken([]int{0, 1}, line)
-			newLine = remaining
-			token := PassthroughToken{Value: val, TokenData: tokData}
-			tokens = append(tokens, token)
+
+			inputLine, ok = receiver.getLineToProcess(inputLine)
+		}
+	}(receiver)
+
+	return tokChan, errChan
+
+}
+
+func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (PassthroughToken, InputLine) {
+	openBlockExp := regexp.MustCompile(`{{:|{{`)
+	if loc := openBlockExp.FindStringIndex(inputLine.line); loc != nil {
+		tok := PassthroughToken{Value: inputLine.line[:loc[0]]}
+		tok.LineNum = inputLine.lineNum
+		inputLine.line = inputLine.line[loc[0]:]
+		receiver.state = inBlock
+		return tok, inputLine
+	}
+
+	tok := PassthroughToken{Value: inputLine.line}
+	tok.LineNum = inputLine.lineNum
+	inputLine.line = ""
+	return tok, inputLine
+}
+
+func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, InputLine) {
+	toks := []Token{}
+	currentLine, ok := receiver.getLineToProcess(inputLine)
+
+	openRawStringExp := regexp.MustCompile("^`")
+
+	for ok && receiver.state == inBlock {
+		var (
+			tok       Token
+			remaining InputLine
+		)
+
+		// Ignore whitespace
+		woWhitespace := whitespaceExp.ReplaceAllString(currentLine.line, "")
+		currentLine.line = woWhitespace
+
+		if openRawStringExp.MatchString(currentLine.line) {
+			receiver.state = inStr
+			// drop opening quote
+			currentLine.line = currentLine.line[1:]
+			tok, remaining = receiver.getRawStringToken(currentLine)
+		} else {
+			tok, remaining = receiver.getNextBlockToken(currentLine)
 		}
 
-		col += len(line) - len(newLine)
-		line = newLine
+		toks = append(toks, tok)
+		currentLine, ok = receiver.getLineToProcess(remaining)
 	}
 
-	if shouldAppendEOL(tokens) {
-		tokens = append(tokens, EOLToken{})
-	}
-	return tokens
+	return toks, currentLine
 }
 
-func shouldAppendEOL(tokens []Token) bool {
-	if len(tokens) == 0 {
-		return false
+func (receiver *Lexer) getRawStringToken(inputLine InputLine) (Token, InputLine) {
+	rawStr := ""
+	closeRawStringExp := regexp.MustCompile("`")
+
+	currentLine, ok := receiver.getLineToProcess(inputLine)
+	var tok Token
+
+	for ok && receiver.state == inStr {
+		if loc := closeRawStringExp.FindStringIndex(currentLine.line); loc != nil {
+			rawStr += currentLine.line[:loc[0]]
+			currentLine.line = currentLine.line[loc[1]:]
+			tok = StrToken{Str: rawStr, TokenData: TokenData{LineNum: inputLine.lineNum}}
+			receiver.state = inBlock
+		} else {
+			rawStr += currentLine.line
+			currentLine, ok = receiver.getLineToProcess(InputLine{})
+		}
 	}
 
-	bt, ok := tokens[len(tokens)-1].(BlockToken)
-	return ok && bt.Block == "}}"
+	return tok, currentLine
 }
 
-// Checks if a subtraction sign is actually a negative unary
-// operator instead of a subtraction
-// This smells bad
-func isActuallyUnary(tokens []Token) bool {
-	if len(tokens) == 0 {
-		return true
-	} else if _, ok := tokens[len(tokens)-1].(NumToken); !ok {
-		return true
+func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine) {
+	tokData := TokenData{LineNum: inputLine.lineNum}
+
+	if loc := multOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+		token := MultOpToken{Operator: operator, TokenData: tokData}
+		return token, remaining
+	} else if loc := addOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+
+		var token Token
+		// if operator == "" && isActuallyUnary(tokens) {
+		// 	token = UnaryOpToken{Operator: operator, TokenData: tokData}
+		// } else {
+		token = AddOpToken{Operator: operator, TokenData: tokData}
+		// }
+
+		return token, remaining
+	} else if loc := relOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+		token := RelOpToken{Operator: operator, TokenData: tokData}
+		return token, remaining
+	} else if loc := logicOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+		token := LogicOpToken{Operator: operator, TokenData: tokData}
+		return token, remaining
+	} else if loc := assignOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+		token := AssignOpToken{Operator: operator, TokenData: tokData}
+		return token, remaining
+	} else if loc := unaryOp.FindStringIndex(inputLine.line); loc != nil {
+		operator, remaining := extractToken(loc, inputLine)
+		token := UnaryOpToken{Operator: operator, TokenData: tokData}
+		return token, remaining
+	} else if loc := strExp.FindStringIndex(inputLine.line); loc != nil {
+		str, remaining := extractToken(loc, inputLine)
+		token := StrToken{Str: str, TokenData: tokData}
+		return token, remaining
+	} else if loc := numExp.FindStringIndex(inputLine.line); loc != nil {
+		num, remaining := extractToken(loc, inputLine)
+		token := NumToken{Num: num, TokenData: tokData}
+		return token, remaining
+	} else if loc := boolExp.FindStringIndex(inputLine.line); loc != nil {
+		boolVal, remaining := extractToken(loc, inputLine)
+		token := BoolToken{Value: boolVal, TokenData: tokData}
+		return token, remaining
+	} else if loc := ifExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := IfToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := elseIfExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := ElseIfToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := elseExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := ElseToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := forExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := ForToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := inExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := InToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := endExp.FindStringIndex(inputLine.line); loc != nil {
+		_, remaining := extractToken(loc, inputLine)
+		token := EndToken{TokenData: tokData}
+		return token, remaining
+	} else if loc := identExp.FindStringIndex(inputLine.line); loc != nil {
+		// Ident should come after more specific tokens like bool and var
+		ident, remaining := extractToken(loc, inputLine)
+		token := IdentToken{Identifier: ident, TokenData: tokData}
+		return token, remaining
+	} else if loc := symbolExp.FindStringIndex(inputLine.line); loc != nil {
+		symbol, remaining := extractToken(loc, inputLine)
+		token := SymbolToken{Symbol: symbol, TokenData: tokData}
+		return token, remaining
+	} else if loc := blockExp.FindStringIndex(inputLine.line); loc != nil {
+		block, remaining := extractToken(loc, inputLine)
+		token := BlockToken{Block: block, TokenData: tokData}
+
+		if block == "}}" {
+			receiver.state = passthrough
+		}
+		return token, remaining
 	}
-	return false
+
+	return nil, inputLine
 }
 
 // Extract the token between [loc[0],loc[1]) from the line
 // and return the remaining characters in the line
-func extractToken(loc []int, line string) (string, string) {
-	token := line[loc[0]:loc[1]]
-	return token, line[loc[1]:]
+func extractToken(loc []int, inputLine InputLine) (string, InputLine) {
+	token := inputLine.line[loc[0]:loc[1]]
+	inputLine.line = inputLine.line[loc[1]:]
+	return token, inputLine
 }
