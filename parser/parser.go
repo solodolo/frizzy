@@ -9,7 +9,7 @@ import (
 
 // Parse reads tokens from tokChan and parses them into tree nodes
 // which are then fed to nodeChan
-func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan error) {
+func Parse(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, errChan chan error) {
 	defer close(errChan)
 
 	parseErrChan := make(chan error)
@@ -19,7 +19,7 @@ func Parse(tokChan chan []lexer.Token, nodeChan chan TreeNode, errChan chan erro
 }
 
 // Read lines of tokens from tokChan and turn them into TreeNodes sent to nodeChan
-func readAndParseTokens(tokChan chan []lexer.Token, nodeChan chan TreeNode, parseErrChan chan error) {
+func readAndParseTokens(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, parseErrChan chan error) {
 	defer close(nodeChan)
 	defer close(parseErrChan)
 
