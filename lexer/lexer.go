@@ -7,34 +7,28 @@ import (
 	"regexp"
 )
 
-var multOp = regexp.MustCompile(`^[*\/%]`)
-var addOp = regexp.MustCompile(`^\+`)
-var subOp = regexp.MustCompile(`^-`)
-var relOp = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
-var logicOp = regexp.MustCompile(`^(\|\||&&)`)
-var assignOp = regexp.MustCompile(`^=`)
-var unaryOp = regexp.MustCompile(`^!`)
-
-var identExp = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-
-var strExp = regexp.MustCompile(`(?m)^"[^"]*"`)
-var numExp = regexp.MustCompile(`^[0-9]+`)
-
-var ifExp = regexp.MustCompile(`^if`)
-var elseIfExp = regexp.MustCompile(`^else_if`)
-var elseExp = regexp.MustCompile(`^else`)
-
-var forExp = regexp.MustCompile(`^for`)
-var inExp = regexp.MustCompile(`^in`)
-var endExp = regexp.MustCompile(`^end`)
-
-var boolExp = regexp.MustCompile(`^(true|false)`)
-
-var symbolExp = regexp.MustCompile(`^[;(),\.]`)
-
-var blockExp = regexp.MustCompile(`^({{:|{{|}})`)
-
-var whitespaceExp = regexp.MustCompile(`^\s+`)
+var (
+	multOp        = regexp.MustCompile(`^[*\/%]`)
+	addOp         = regexp.MustCompile(`^\+`)
+	subOp         = regexp.MustCompile(`^-`)
+	relOp         = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
+	logicOp       = regexp.MustCompile(`^(\|\||&&)`)
+	assignOp      = regexp.MustCompile(`^=`)
+	unaryOp       = regexp.MustCompile(`^!`)
+	identExp      = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
+	strExp        = regexp.MustCompile(`(?m)^"[^"]*"`)
+	numExp        = regexp.MustCompile(`^[0-9]+`)
+	ifExp         = regexp.MustCompile(`^if`)
+	elseIfExp     = regexp.MustCompile(`^else_if`)
+	elseExp       = regexp.MustCompile(`^else`)
+	forExp        = regexp.MustCompile(`^for`)
+	inExp         = regexp.MustCompile(`^in`)
+	endExp        = regexp.MustCompile(`^end`)
+	boolExp       = regexp.MustCompile(`^(true|false)`)
+	symbolExp     = regexp.MustCompile(`^[;(),\.]`)
+	blockExp      = regexp.MustCompile(`^({{:|{{|}})`)
+	whitespaceExp = regexp.MustCompile(`^\s+`)
+)
 
 // Lexer states
 type LexerState int
