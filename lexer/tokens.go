@@ -47,19 +47,18 @@ func (token AssignOpToken) GetGrammarSymbol() string {
 	return "="
 }
 
-// Represents an operator like
-// !
-type UnaryOpToken struct {
+// NegationOpToken represents the ! operator
+type NegationOpToken struct {
 	Operator string
 	TokenData
 }
 
-func (token UnaryOpToken) GetValue() string {
-	return token.Operator
+func (token NegationOpToken) GetValue() string {
+	return "!"
 }
 
-func (token UnaryOpToken) GetGrammarSymbol() string {
-	return "UNARY_OP"
+func (token NegationOpToken) GetGrammarSymbol() string {
+	return token.GetValue()
 }
 
 // Represents an operator like
@@ -92,19 +91,30 @@ func (token RelOpToken) GetGrammarSymbol() string {
 	return "REL_OP"
 }
 
-// Represents operators like
-// +, -
+// AddOpToken represents the addition operator
 type AddOpToken struct {
-	Operator string
 	TokenData
 }
 
 func (token AddOpToken) GetValue() string {
-	return token.Operator
+	return "+"
 }
 
 func (token AddOpToken) GetGrammarSymbol() string {
-	return "ADD_OP"
+	return token.GetValue()
+}
+
+// SubOpToken represents the subtraction operator
+type SubOpToken struct {
+	TokenData
+}
+
+func (token SubOpToken) GetValue() string {
+	return "-"
+}
+
+func (token SubOpToken) GetGrammarSymbol() string {
+	return token.GetValue()
 }
 
 // Represents operators like
