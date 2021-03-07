@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -17,8 +16,8 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 		{"/", "MultOpToken"},
 		{"%", "MultOpToken"},
 		{"+", "AddOpToken"},
-		{"-", "AddOpToken"},
-		{"!", "UnaryOpToken"},
+		{"-", "SubOpToken"},
+		{"!", "NegationOpToken"},
 		{"==", "RelOpToken"},
 		{"!=", "RelOpToken"},
 		{"<=", "RelOpToken"},
@@ -35,7 +34,7 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 		{"else_if", "ElseIfToken"},
 		{"else", "ElseToken"},
 		{"end", "EndToken"},
-		{"post.title", "VarToken"},
+		{"post", "IdentToken"},
 		{"true", "BoolToken"},
 		{"false", "BoolToken"},
 		{";", "SymbolToken"},
@@ -45,58 +44,13 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tokens := getLineTokens(test.symbol, 1)
+		lexer := Lexer{}
+		tok, _ := lexer.getNextBlockToken(InputLine{line: test.symbol})
 		// Get type of each token and trim off package name
-		tokType := strings.TrimPrefix(fmt.Sprintf("%T", tokens[0]), "lexer.")
+		tokType := strings.TrimPrefix(fmt.Sprintf("%T", tok), "lexer.")
 
 		if tokType != test.tokType {
 			t.Errorf("Expected %q to return type %s. Got type %s.", test.symbol, test.tokType, tokType)
-		}
-	}
-}
-
-func TestGetLineTokensReturnsCorrectTokensForLine(t *testing.T) {
-	var tests = []struct {
-		line       string
-		tokenTypes []string
-	}{
-		{"post.", []string{"IdentToken", "PassthroughToken"}},
-		{"(a < b)", []string{"SymbolToken", "IdentToken", "RelOpToken", "IdentToken", "SymbolToken"}},
-		{"", []string{}},
-		{"a.b && b.a", []string{"VarToken", "LogicOpToken", "VarToken"}},
-		{"foo || false", []string{"IdentToken", "LogicOpToken", "BoolToken"}},
-	}
-
-	for _, test := range tests {
-		tokens := getLineTokens(test.line, 1)
-		equal, tokenTypes := tokenTypesAreEqual(tokens, test.tokenTypes)
-		if !equal {
-			t.Errorf("Expected %q to return %v. Got %v.", test.line, test.tokenTypes, tokenTypes)
-		}
-	}
-}
-
-func TestBlockIndicesReturnsCorrectIndices(t *testing.T) {
-	var tests = []struct {
-		line  string
-		start int
-		end   int
-	}{
-		{"{{abcde}}", 0, 9},
-		{"a{{bcd}}", 1, 8},
-		{"a{{bcd}}e", 1, 8},
-		{"{{bcd}}e", 0, 7},
-		{"{{abcde", 0, -1},
-		{"abcde}}", -1, 7},
-		{"ab{{cd", 2, -1},
-		{"ab}}cd", -1, 4},
-	}
-
-	for _, test := range tests {
-		start, end := getBlockIndices(test.line)
-
-		if start != test.start || end != test.end {
-			t.Errorf("Expected %q to return %d, %d. Got %d, %d.", test.line, test.start, test.end, start, end)
 		}
 	}
 }
@@ -107,118 +61,147 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 		tokenTypes []string
 	}{
 		{`<html></html>`, []string{"PassthroughToken"}},
-		{`<html>{{"blah"}}</html>`, []string{"PassthroughToken", "BlockToken", "StrToken", "BlockToken", "PassthroughToken"}},
-		{`{{: "foo" }}`, []string{"BlockToken", "StrToken", "BlockToken"}},
-		{`{{ !a.b }}</html>`, []string{"BlockToken", "UnaryOpToken", "VarToken", "BlockToken", "PassthroughToken"}},
+		{`<html>{{"blah"}}</html>`, []string{"PassthroughToken", "BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"}},
+		{`{{: "foo" }}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken"}},
+		{`{{ !a.b }}</html>`, []string{"BlockToken", "NegationOpToken", "IdentToken", "SymbolToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken"}},
 		{`<html>"blah"}}</html>`, []string{"PassthroughToken"}},
 		{`<html>"blah"{{ print()`, []string{"PassthroughToken", "BlockToken", "IdentToken", "SymbolToken", "SymbolToken"}},
 		{`{{ foo(a,b)`, []string{"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken"}},
-		{"{{a\nb}}", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken"}},
-		{"a{{a\nb}}", []string{"PassthroughToken", "BlockToken", "IdentToken", "IdentToken", "BlockToken"}},
-		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "PassthroughToken"}},
-		{"{{if(true)}}", []string{"BlockToken", "IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken"}},
-		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "EndToken", "BlockToken"}},
+		{"{{a\nb}}", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
+		{"a{{a\nb}}", []string{"PassthroughToken", "BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
+		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken"}},
+		{"{{if(true)}}", []string{"BlockToken", "IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "EOLToken"}},
+		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "EndToken", "BlockToken", "EOLToken"}},
 	}
 
 	for _, test := range tests {
-		tokens, _ := processLine(InputLine{line: test.line}, false) // Not in open block
-		equal, tokenTypes := tokenTypesAreEqual(tokens, test.tokenTypes)
+		lineChan := make(chan InputLine)
+		lexer := Lexer{lineChan: lineChan}
 
-		if !equal {
-			t.Errorf("Expected %q to return %v. Got %v.", test.line, test.tokenTypes, tokenTypes)
+		go func(lineChan chan InputLine) {
+			defer close(lineChan)
+			lineChan <- InputLine{line: test.line}
+		}(lineChan)
+
+		tokChan, errChan := lexer.processLines()
+
+		tokens := []Token{}
+
+		for toks := range tokChan {
+			tokens = append(tokens, toks...)
+		}
+
+		err := <-errChan
+
+		if err != nil {
+			t.Errorf("expected no errors, got %q", err)
+		} else if equal, gotTypes := tokenTypesAreEqual(test.tokenTypes, tokens); !equal {
+			t.Errorf("expected %v types, got %v", test.tokenTypes, gotTypes)
 		}
 	}
 }
 
 func TestLexHandlesReadFailure(t *testing.T) {
 	pipeReader, _ := io.Pipe()
-	scanner := bufio.NewScanner(pipeReader)
 	pipeReader.Close()
+	lexer := Lexer{}
 
-	tokChan := make(chan []Token)
-	errChan := make(chan error)
-
-	go Lex(scanner, tokChan, errChan)
-	expected := "error reading lines for lexing: io: read/write on closed pipe"
+	tokChan, errChan := lexer.Lex(pipeReader)
+	expected := "lexer read error line 1: io: read/write on closed pipe"
 
 	for tokens := range tokChan {
-		t.Errorf("Expecting error. Got tokens %v.", tokens)
+		t.Errorf("expecting error, got tokens %v.", tokens)
 	}
 
 	err := <-errChan
 	if err == nil {
-		t.Error("Expected error. Got nil.")
+		t.Error("expected error, got nil.")
 	} else if err.Error() != expected {
-		t.Errorf("Expecting error %q. Got %q.", expected, err.Error())
+		t.Errorf("expecting error %q, got %q.", expected, err.Error())
 	}
 }
 
-func TestLexReturnsCorrectTokens(t *testing.T) {
+func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 	var tests = []struct {
 		lines    string
-		expected [][]string
+		expected []string
 	}{
 		{
-			"first {{a}}\nsecond", [][]string{
-				{"PassthroughToken", "BlockToken", "IdentToken", "BlockToken"},
-				{"PassthroughToken"},
+			"first {{a}}\nsecond", []string{
+				"PassthroughToken", "BlockToken", "IdentToken", "BlockToken", "EOLToken",
+				"PassthroughToken", "PassthroughToken",
 			},
 		},
 		{
-			"foo bar", [][]string{{"PassthroughToken"}},
+			"foo bar", []string{"PassthroughToken"},
 		},
 		{
-			"{{\nfor a in b", [][]string{
-				{"BlockToken"},
-				{"ForToken", "IdentToken", "InToken", "IdentToken"},
+			"{{\nfor a in b", []string{"BlockToken", "ForToken", "IdentToken", "InToken", "IdentToken"},
+		},
+		{
+			`{{: "Foo"}}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"},
+		},
+		{
+			"{{: title}}\n{{: title}}\n{{: title}}", []string{
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
 			},
 		},
 		{
-			`{{: "Foo"}}`, [][]string{
-				{"BlockToken", "StrToken", "BlockToken"},
+			"{{print(a)\n}}blah", []string{
+				"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken",
+				"BlockToken", "EOLToken", "PassthroughToken",
 			},
 		},
 		{
-			"{{: post.title}}\n{{: post.title}}\n{{: post.title}}", [][]string{
-				{"BlockToken", "VarToken", "BlockToken"},
-				{"BlockToken", "VarToken", "BlockToken"},
-				{"BlockToken", "VarToken", "BlockToken"},
+			"{{`multi\nline\nstr`}}", []string{
+				"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken",
 			},
 		},
 		{
-			"{{print(a)\n}}blah", [][]string{
-				{"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken"},
-				{"BlockToken", "PassthroughToken"},
+			"{{post.", []string{"BlockToken", "IdentToken", "SymbolToken"},
+		},
+		{
+			"{{(a < b)", []string{"BlockToken", "SymbolToken", "IdentToken", "RelOpToken", "IdentToken", "SymbolToken"},
+		},
+		{
+			"", []string{},
+		},
+		{
+			"{{a.b && b.a", []string{
+				"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "LogicOpToken", "IdentToken", "SymbolToken", "IdentToken",
 			},
+		},
+		{
+			"{{foo || false", []string{"BlockToken", "IdentToken", "LogicOpToken", "BoolToken"},
 		},
 	}
 
 	for _, test := range tests {
-		scanner := bufio.NewScanner(strings.NewReader(test.lines))
-		got := [][]Token{}
-		tokChan := make(chan []Token)
-		errChan := make(chan error)
-		go Lex(scanner, tokChan, errChan)
+		reader := strings.NewReader(test.lines)
+		got := []Token{}
+		lexer := Lexer{}
+
+		tokChan, errChan := lexer.Lex(reader)
 
 		for tokens := range tokChan {
-			got = append(got, tokens)
+			got = append(got, tokens...)
 		}
 
 		err := <-errChan
 
 		if err != nil {
-			t.Errorf("Expected no errors. Got %q", err.Error())
+			t.Errorf("expected no errors, got %q", err.Error())
 		}
 
 		if len(got) != len(test.expected) {
-			t.Errorf("Expected %d lines of tokens. Got %d.", len(test.expected), len(got))
+			t.Errorf("expected %d tokens, got %d.", len(test.expected), len(got))
 		}
 
-		for i, toks := range got {
-			equal, tokTypes := tokenTypesAreEqual(toks, test.expected[i])
-			if !equal {
-				t.Errorf("Expected %q to return %v. Got %v.", test.lines, test.expected[i], tokTypes)
-			}
+		equal, tokTypes := tokenTypesAreEqual(test.expected, got)
+		if !equal {
+			t.Errorf("expected %q to return %v, got %v.", test.lines, test.expected, tokTypes)
 		}
 	}
 }
@@ -226,33 +209,33 @@ func TestLexReturnsCorrectTokens(t *testing.T) {
 func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 	tests := []struct {
 		lines    string
-		lineNums int
+		lineNums []int
 	}{
-		{"first {{a}}\nsecond", 2},
-		{"foo bar", 1},
-		{"{{\nfor a in b", 2},
-		{`{{: "Foo"}}`, 1},
-		{"{{: post.title}}\n{{: post.title}}\n{{: post.title}}", 3},
-		{"{{print(a)\n}}blah", 2},
-		{"a\nb\nc\n\n\nf", 6},
+		{"first {{a}}\nsecond", []int{1, 1, 1, 1, 1, 1, 2}},
+		{"foo bar", []int{1}},
+		{"{{\nfor a in b", []int{1, 2, 2, 2, 2}},
+		{`{{: "Foo"}}`, []int{1, 1, 1, 1}},
+		{"{{: post}}\n{{: post}}\n{{: post}}", []int{1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3}},
+		{"{{print(a)\n\n}}blah", []int{1, 1, 1, 1, 1, 3, 3, 3}},
+		{"a\nb\nc\n\n\nf", []int{1, 2, 3, 4, 5, 6}},
 	}
 
 	for _, test := range tests {
-		scanner := bufio.NewScanner(strings.NewReader(test.lines))
-		tokChan := make(chan []Token)
-		errChan := make(chan error)
-		go Lex(scanner, tokChan, errChan)
+		reader := strings.NewReader(test.lines)
+		lexer := Lexer{}
 
-		got := [][]Token{}
+		tokChan, _ := lexer.Lex(reader)
+
+		got := []Token{}
 		for tokens := range tokChan {
-			got = append(got, tokens)
+			got = append(got, tokens...)
 		}
 
-		for i := 1; i <= test.lineNums; i++ {
-			for _, token := range got[i-1] {
-				if token.GetLineNum() != i {
-					t.Errorf("Expected token to have line number %d. Got %d.", i, token.GetLineNum())
-				}
+		for i := range test.lineNums {
+			if i >= len(got) {
+				t.Errorf("expected token with line number %d, but none found", test.lineNums[i])
+			} else if test.lineNums[i] != got[i].GetLineNum() {
+				t.Errorf("expected token %v to have line number %d, got %d", got[i], test.lineNums[i], got[i].GetLineNum())
 			}
 		}
 	}
@@ -261,16 +244,90 @@ func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 // Helper function to compare the token types of a to the
 // token types in b.
 // Returns the comparison result and the found token types
-func tokenTypesAreEqual(a []Token, b []string) (bool, []string) {
-	equal := len(a) == len(b)
-	tokenTypes := make([]string, len(a))
+func tokenTypesAreEqual(expected []string, got []Token) (bool, []string) {
+	equal := len(expected) == len(got)
+	tokenTypes := make([]string, len(got))
 
-	if equal {
-		for i := range a {
-			tokenTypes[i] = strings.TrimPrefix(fmt.Sprintf("%T", a[i]), "lexer.")
-			equal = equal && (b[i] == tokenTypes[i])
+	for i := range got {
+		tokenTypes[i] = strings.TrimPrefix(fmt.Sprintf("%T", got[i]), "lexer.")
+		if equal {
+			equal = equal && (expected[i] == tokenTypes[i])
 		}
 	}
 
 	return equal, tokenTypes
+}
+
+func TestRawStringReturnsCorrectLexResultFromParam(t *testing.T) {
+	var tests = []struct {
+		tokText           string
+		expectedRemaining string
+	}{
+		{"a single line string", "this is the remaining text"},
+		{"", ""},
+		{"", "foobar"},
+		{"somestr", ""},
+		{`a
+		b
+		c`, "this is the remaining text"},
+		{`
+		
+		`, "more remaining"},
+		{`
+		
+		`, ""},
+	}
+
+	for i, test := range tests {
+		lineChan := make(chan InputLine)
+		lexer := Lexer{lineChan: lineChan, state: inStr}
+		inputLine := InputLine{line: fmt.Sprintf("`%s`%s", test.tokText, test.expectedRemaining)}
+
+		tok, remaining := lexer.getRawStringToken(inputLine)
+
+		if tok.GetValue() != test.tokText {
+			t.Errorf("failed test %d: expected token text %q, got %q", i, test.tokText, tok)
+		} else if remaining.line != test.expectedRemaining {
+			t.Errorf("failed test %d: expected remaining text %q, got %q", i, test.expectedRemaining, remaining.line)
+		}
+	}
+}
+
+func TestRawStringReturnsCorrectLexResultFromChan(t *testing.T) {
+	var tests = []struct {
+		tokText           string
+		expectedRemaining string
+	}{
+		{"a single line string", "this is the remaining text"},
+		{"", ""},
+		{"", "foobar"},
+		{"somestr", ""},
+		{`a
+		b
+		c`, "this is the remaining text"},
+		{`
+	
+		`, "more remaining"},
+		{`
+	
+		`, ""},
+	}
+
+	for i, test := range tests {
+		lineChan := make(chan InputLine)
+		lexer := Lexer{lineChan: lineChan, state: inStr}
+		inputLine := InputLine{line: fmt.Sprintf("`%s`%s", test.tokText, test.expectedRemaining)}
+
+		go func(lineChan chan InputLine, inputLine InputLine) {
+			lineChan <- inputLine
+		}(lineChan, inputLine)
+
+		tok, remaining := lexer.getRawStringToken(InputLine{})
+
+		if tok.GetValue() != test.tokText {
+			t.Errorf("failed test %d: expected token text %q, got %q", i, test.tokText, tok)
+		} else if remaining.line != test.expectedRemaining {
+			t.Errorf("failed test %d: expected remaining text %q, got %q", i, test.expectedRemaining, remaining.line)
+		}
+	}
 }
