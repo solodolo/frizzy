@@ -8,26 +8,29 @@ import (
 )
 
 var (
-	multOp        = regexp.MustCompile(`^[*\/%]`)
-	addOp         = regexp.MustCompile(`^\+`)
-	subOp         = regexp.MustCompile(`^-`)
-	relOp         = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
-	logicOp       = regexp.MustCompile(`^(\|\||&&)`)
-	assignOp      = regexp.MustCompile(`^=`)
-	unaryOp       = regexp.MustCompile(`^!`)
-	identExp      = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-	strExp        = regexp.MustCompile(`(?m)^"[^"]*"`)
-	numExp        = regexp.MustCompile(`^[0-9]+`)
-	ifExp         = regexp.MustCompile(`^if`)
-	elseIfExp     = regexp.MustCompile(`^else_if`)
-	elseExp       = regexp.MustCompile(`^else`)
-	forExp        = regexp.MustCompile(`^for`)
-	inExp         = regexp.MustCompile(`^in`)
-	endExp        = regexp.MustCompile(`^end`)
-	boolExp       = regexp.MustCompile(`^(true|false)`)
-	symbolExp     = regexp.MustCompile(`^[;(),\.]`)
-	blockExp      = regexp.MustCompile(`^({{:|{{|}})`)
-	whitespaceExp = regexp.MustCompile(`^\s+`)
+	multOp            = regexp.MustCompile(`^[*\/%]`)
+	addOp             = regexp.MustCompile(`^\+`)
+	subOp             = regexp.MustCompile(`^-`)
+	relOp             = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
+	logicOp           = regexp.MustCompile(`^(\|\||&&)`)
+	assignOp          = regexp.MustCompile(`^=`)
+	unaryOp           = regexp.MustCompile(`^!`)
+	identExp          = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
+	strExp            = regexp.MustCompile(`(?m)^"[^"]*"`)
+	numExp            = regexp.MustCompile(`^[0-9]+`)
+	ifExp             = regexp.MustCompile(`^if`)
+	elseIfExp         = regexp.MustCompile(`^else_if`)
+	elseExp           = regexp.MustCompile(`^else`)
+	forExp            = regexp.MustCompile(`^for`)
+	inExp             = regexp.MustCompile(`^in`)
+	endExp            = regexp.MustCompile(`^end`)
+	boolExp           = regexp.MustCompile(`^(true|false)`)
+	symbolExp         = regexp.MustCompile(`^[;(),\.]`)
+	blockExp          = regexp.MustCompile(`^({{:|{{|}})`)
+	openBlockExp      = regexp.MustCompile(`{{:|{{`)
+	openRawStringExp  = regexp.MustCompile("^`")
+	closeRawStringExp = regexp.MustCompile("`")
+	whitespaceExp     = regexp.MustCompile(`^\s+`)
 )
 
 // Lexer states
@@ -137,7 +140,6 @@ func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
 }
 
 func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, InputLine) {
-	openBlockExp := regexp.MustCompile(`{{:|{{`)
 	if loc := openBlockExp.FindStringIndex(inputLine.line); loc != nil {
 		receiver.state = inBlock
 
@@ -160,8 +162,6 @@ func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, Inp
 func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, InputLine) {
 	toks := []Token{}
 	currentLine, ok := receiver.getLineToProcess(inputLine)
-
-	openRawStringExp := regexp.MustCompile("^`")
 
 	for ok && receiver.state == inBlock {
 		var (
@@ -195,7 +195,6 @@ func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, Input
 
 func (receiver *Lexer) getRawStringToken(inputLine InputLine) (Token, InputLine) {
 	rawStr := ""
-	closeRawStringExp := regexp.MustCompile("`")
 	currentLine, ok := receiver.getLineToProcess(inputLine)
 	var tok Token
 
