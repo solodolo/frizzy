@@ -63,7 +63,7 @@ func TestProcessBoolNodeReturnsBoolAsString(t *testing.T) {
 func TestAddTwoNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
 		lexer.NumToken{Num: "10"},
-		lexer.AddOpToken{Operator: "+"},
+		lexer.AddOpToken{},
 		lexer.NumToken{Num: "3"},
 	})
 
@@ -77,9 +77,9 @@ func TestAddTwoNumbersReturnsCorrectResult(t *testing.T) {
 
 func TestAddOneNegativeNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "10"},
-		lexer.AddOpToken{Operator: "+"},
+		lexer.AddOpToken{},
 		lexer.NumToken{Num: "3"},
 	})
 
@@ -94,7 +94,7 @@ func TestAddOneNegativeNumbersReturnsCorrectResult(t *testing.T) {
 func TestSubtractTwoNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
 		lexer.NumToken{Num: "10"},
-		lexer.AddOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "3"},
 	})
 
@@ -108,9 +108,9 @@ func TestSubtractTwoNumbersReturnsCorrectResult(t *testing.T) {
 
 func TestSubtractFromNegativeNumberReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "10"},
-		lexer.AddOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "99"},
 	})
 
@@ -141,7 +141,7 @@ func TestMultiplyPositiveNegativeNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
 		lexer.NumToken{Num: "6"},
 		lexer.MultOpToken{Operator: "*"},
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "4"},
 	})
 
@@ -155,7 +155,7 @@ func TestMultiplyPositiveNegativeNumbersReturnsCorrectResult(t *testing.T) {
 
 func TestMultiplyNegativePositiveNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "6001"},
 		lexer.MultOpToken{Operator: "*"},
 		lexer.NumToken{Num: "30"},
@@ -171,10 +171,10 @@ func TestMultiplyNegativePositiveNumbersReturnsCorrectResult(t *testing.T) {
 
 func TestMultiplyTwoNegativeNumbersReturnsCorrectResult(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "13"},
 		lexer.MultOpToken{Operator: "*"},
-		lexer.UnaryOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "44"},
 	})
 
@@ -188,7 +188,7 @@ func TestMultiplyTwoNegativeNumbersReturnsCorrectResult(t *testing.T) {
 
 func TestNegationOfTrueBoolReturnsFalse(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "!"},
+		lexer.NegationOpToken{Operator: "!"},
 		lexer.BoolToken{Value: "true"},
 	})
 
@@ -201,7 +201,7 @@ func TestNegationOfTrueBoolReturnsFalse(t *testing.T) {
 }
 func TestNegationOfFalseBoolReturnsTrue(t *testing.T) {
 	head := generateTree([]lexer.Token{
-		lexer.UnaryOpToken{Operator: "!"},
+		lexer.NegationOpToken{Operator: "!"},
 		lexer.BoolToken{Value: "false"},
 	})
 
@@ -1028,7 +1028,7 @@ func TestPrintFuncCallReturnsValue(t *testing.T) {
 		lexer.IdentToken{Identifier: "print"},
 		lexer.SymbolToken{Symbol: "("},
 		lexer.NumToken{Num: "6423"},
-		lexer.AddOpToken{Operator: "-"},
+		lexer.SubOpToken{},
 		lexer.NumToken{Num: "6422"},
 		lexer.SymbolToken{Symbol: ")"},
 	})
