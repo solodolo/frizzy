@@ -133,19 +133,37 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 			},
 		},
 		{
+			"{{a-}\nsecond", []string{
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+			},
+		},
+		{
+			"{{a-}        \nsecond", []string{
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+			},
+		},
+		{
+			"{{a-}          second", []string{
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+			},
+		},
+		{
 			"foo bar", []string{"PassthroughToken"},
 		},
 		{
 			"{{\nfor a in b", []string{"BlockToken", "ForToken", "IdentToken", "InToken", "IdentToken"},
 		},
 		{
-			`{{: "Foo"}}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"},
+			`{{: "Foo"}}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken"},
+		},
+		{
+			"{{: \"Foo\"}}\n", []string{"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"},
 		},
 		{
 			"{{: title}}\n{{: title}}\n{{: title}}", []string{
 				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
 				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "EOLToken",
 			},
 		},
 		{
@@ -156,7 +174,7 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 		},
 		{
 			"{{`multi\nline\nstr`}}", []string{
-				"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "StrToken", "BlockToken", "EOLToken",
 			},
 		},
 		{
@@ -214,13 +232,13 @@ func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 		{"first {{a}}\nsecond", []int{1, 1, 1, 1, 1, 1, 2}},
 		{"foo bar", []int{1}},
 		{"{{\nfor a in b", []int{1, 2, 2, 2, 2}},
-		{`{{: "Foo"}}`, []int{1, 1, 1, 1}},
-		{"{{: post}}\n{{: post}}\n{{: post}}", []int{1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3}},
+		{`{{: "Foo"}}`, []int{1, 1, 1}},
+		{"{{: post}}\n{{: post}}\n{{: post}}", []int{1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3}},
 		{"{{print(a)\n\n}}blah", []int{1, 1, 1, 1, 1, 3, 3, 3}},
 		{"a\nb\nc\n\n\nf", []int{1, 2, 3, 4, 5, 6}},
 	}
 
-	for _, test := range tests {
+	for testNum, test := range tests {
 		reader := strings.NewReader(test.lines)
 		lexer := Lexer{}
 
@@ -233,9 +251,10 @@ func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 
 		for i := range test.lineNums {
 			if i >= len(got) {
-				t.Errorf("expected token with line number %d, but none found", test.lineNums[i])
+				t.Errorf("%d: expected token with line number %d, but none found", testNum, test.lineNums[i])
 			} else if test.lineNums[i] != got[i].GetLineNum() {
-				t.Errorf("expected token %v to have line number %d, got %d", got[i], test.lineNums[i], got[i].GetLineNum())
+				t.Errorf("%d: expected token %q to have line number %d, got %d",
+					testNum, got[i].GetValue(), test.lineNums[i], got[i].GetLineNum())
 			}
 		}
 	}
