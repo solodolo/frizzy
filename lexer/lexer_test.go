@@ -194,6 +194,12 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 		{
 			"{{foo || false", []string{"BlockToken", "IdentToken", "LogicOpToken", "BoolToken"},
 		},
+		{
+			"{{ title = `this is the title`;\n  date= `2021-03-08`; }}\n# This is a test", []string{
+				"BlockToken", "IdentToken", "AssignOpToken", "StrToken", "SymbolToken", "IdentToken",
+				"AssignOpToken", "StrToken", "SymbolToken", "BlockToken", "EOLToken",
+			},
+		},
 	}
 
 	for _, test := range tests {
