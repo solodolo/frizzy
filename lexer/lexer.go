@@ -8,29 +8,30 @@ import (
 )
 
 var (
-	multOp            = regexp.MustCompile(`^[*\/%]`)
-	addOp             = regexp.MustCompile(`^\+`)
-	subOp             = regexp.MustCompile(`^-`)
-	relOp             = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
-	logicOp           = regexp.MustCompile(`^(\|\||&&)`)
-	assignOp          = regexp.MustCompile(`^=`)
-	unaryOp           = regexp.MustCompile(`^!`)
-	identExp          = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-	strExp            = regexp.MustCompile(`(?m)^"[^"]*"`)
-	numExp            = regexp.MustCompile(`^[0-9]+`)
-	ifExp             = regexp.MustCompile(`^if`)
-	elseIfExp         = regexp.MustCompile(`^else_if`)
-	elseExp           = regexp.MustCompile(`^else`)
-	forExp            = regexp.MustCompile(`^for`)
-	inExp             = regexp.MustCompile(`^in`)
-	endExp            = regexp.MustCompile(`^end`)
-	boolExp           = regexp.MustCompile(`^(true|false)`)
-	symbolExp         = regexp.MustCompile(`^[;(),\.]`)
-	blockExp          = regexp.MustCompile(`^({{:|{{|}})`)
-	openBlockExp      = regexp.MustCompile(`{{:|{{`)
-	openRawStringExp  = regexp.MustCompile("^`")
-	closeRawStringExp = regexp.MustCompile("`")
-	whitespaceExp     = regexp.MustCompile(`^\s+`)
+	multOp               = regexp.MustCompile(`^[*\/%]`)
+	addOp                = regexp.MustCompile(`^\+`)
+	subOp                = regexp.MustCompile(`^-`)
+	relOp                = regexp.MustCompile(`^(>=|<=|!=|==|<|>)`)
+	logicOp              = regexp.MustCompile(`^(\|\||&&)`)
+	assignOp             = regexp.MustCompile(`^=`)
+	unaryOp              = regexp.MustCompile(`^!`)
+	identExp             = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
+	strExp               = regexp.MustCompile(`(?m)^"[^"]*"`)
+	numExp               = regexp.MustCompile(`^[0-9]+`)
+	ifExp                = regexp.MustCompile(`^if`)
+	elseIfExp            = regexp.MustCompile(`^else_if`)
+	elseExp              = regexp.MustCompile(`^else`)
+	forExp               = regexp.MustCompile(`^for`)
+	inExp                = regexp.MustCompile(`^in`)
+	endExp               = regexp.MustCompile(`^end`)
+	boolExp              = regexp.MustCompile(`^(true|false)`)
+	symbolExp            = regexp.MustCompile(`^[;(),\.]`)
+	noWhitespaceBlockExp = regexp.MustCompile(`^-}`)
+	blockExp             = regexp.MustCompile(`^({{:|{{|}})`)
+	openBlockExp         = regexp.MustCompile(`{{:|{{`)
+	openRawStringExp     = regexp.MustCompile("^`")
+	closeRawStringExp    = regexp.MustCompile("`")
+	whitespaceExp        = regexp.MustCompile(`^\s+`)
 )
 
 // Lexer states
@@ -38,6 +39,7 @@ type LexerState int
 
 const (
 	passthrough LexerState = iota
+	passthroughNoWhitespace
 	inBlock
 	inStr
 )
@@ -55,7 +57,7 @@ type Lexer struct {
 
 func (receiver *Lexer) Lex(inputReader io.Reader) (<-chan []Token, <-chan error) {
 	inputBuffer := bufio.NewScanner(inputReader)
-	inputBuffer.Split(bufio.ScanLines)
+	inputBuffer.Split(splitLinesKeepNL)
 
 	lineChan, lineErrChan := readLines(inputBuffer)
 
@@ -79,6 +81,15 @@ func (receiver *Lexer) Lex(inputReader io.Reader) (<-chan []Token, <-chan error)
 	return tokChan, lexerErrChan
 }
 
+func splitLinesKeepNL(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	advance, token, err = bufio.ScanLines(data, atEOF)
+	if err == nil && token != nil && !atEOF {
+		// append a new line byte
+		token = append(token, 10)
+	}
+	return
+}
+
 func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
 	lineChan := make(chan InputLine)
 	errChan := make(chan error, 1)
@@ -89,7 +100,7 @@ func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
 
 		i := 1
 		for inputBuffer.Scan() {
-			line := inputBuffer.Text() + "\n"
+			line := inputBuffer.Text()
 			lineChan <- InputLine{line: line, lineNum: i}
 			i++
 		}
@@ -105,7 +116,10 @@ func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
 func (receiver *Lexer) getLineToProcess(remaining InputLine) (InputLine, bool) {
 	if remaining.line == "" {
 		newLine, ok := <-receiver.lineChan
-		return newLine, ok
+		if ok {
+			return newLine, ok
+		}
+		return remaining, ok
 	}
 
 	return remaining, true
@@ -121,11 +135,12 @@ func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
 
 		inputLine, ok := receiver.getLineToProcess(InputLine{})
 		for ok {
-			if receiver.state == passthrough {
-				if tok, remaining := receiver.processPassthroughTokens(inputLine); tok != nil {
+			if receiver.state == passthrough || receiver.state == passthroughNoWhitespace {
+				tok, remaining := receiver.processPassthroughTokens(inputLine)
+				if tok != nil {
 					tokChan <- []Token{tok}
-					inputLine = remaining
 				}
+				inputLine = remaining
 			} else if receiver.state == inBlock {
 				toks, remaining := receiver.processTokensInBlock(inputLine)
 				tokChan <- toks
@@ -140,22 +155,29 @@ func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
 }
 
 func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, InputLine) {
-	if loc := openBlockExp.FindStringIndex(inputLine.line); loc != nil {
-		receiver.state = inBlock
+	passthroughText := inputLine.line
+	remainder := ""
 
-		if loc[0] == 0 {
-			return nil, inputLine
-		}
-
-		tok := PassthroughToken{Value: inputLine.line[:loc[0]]}
-		tok.LineNum = inputLine.lineNum
-		inputLine.line = inputLine.line[loc[0]:]
-		return tok, inputLine
+	if receiver.state == passthroughNoWhitespace {
+		passthroughText = whitespaceExp.ReplaceAllString(passthroughText, "")
 	}
 
-	tok := PassthroughToken{Value: inputLine.line}
+	if loc := openBlockExp.FindStringIndex(passthroughText); loc != nil {
+		receiver.state = inBlock
+
+		remainder = passthroughText[loc[0]:]
+		passthroughText = passthroughText[:loc[0]]
+	} else {
+		receiver.state = passthrough
+	}
+
+	inputLine.line = remainder
+	if passthroughText == "" {
+		return nil, inputLine
+	}
+
+	tok := PassthroughToken{Value: passthroughText}
 	tok.LineNum = inputLine.lineNum
-	inputLine.line = ""
 	return tok, inputLine
 }
 
@@ -186,7 +208,8 @@ func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, Input
 		currentLine, ok = receiver.getLineToProcess(remaining)
 	}
 
-	if receiver.state == passthrough {
+	// if the state changed from inBlock to some passthrough state
+	if receiver.state == passthrough || receiver.state == passthroughNoWhitespace {
 		toks = append(toks, EOLToken{TokenData: TokenData{LineNum: currentLine.lineNum}})
 	}
 
@@ -222,7 +245,13 @@ func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine)
 	if currentLine, ok := receiver.getLineToProcess(inputLine); ok {
 		tokData := TokenData{LineNum: currentLine.lineNum}
 
-		if loc := multOp.FindStringIndex(currentLine.line); loc != nil {
+		if loc := noWhitespaceBlockExp.FindStringIndex(currentLine.line); loc != nil { // should come before subOp
+			receiver.state = passthroughNoWhitespace
+			block, remaining := extractToken(loc, currentLine)
+			token := BlockToken{Block: block}
+
+			return token, remaining
+		} else if loc := multOp.FindStringIndex(currentLine.line); loc != nil {
 			operator, remaining := extractToken(loc, currentLine)
 			token := MultOpToken{Operator: operator, TokenData: tokData}
 			return token, remaining
