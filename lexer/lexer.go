@@ -281,6 +281,9 @@ func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine)
 			return token, remaining
 		} else if loc := strExp.FindStringIndex(currentLine.line); loc != nil {
 			str, remaining := extractToken(loc, currentLine)
+
+			// drop open and close quotes
+			str = str[1 : len(str)-1]
 			token := StrToken{Str: str, TokenData: tokData}
 			return token, remaining
 		} else if loc := numExp.FindStringIndex(currentLine.line); loc != nil {
