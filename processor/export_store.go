@@ -18,21 +18,21 @@ type ExportStorage interface {
 // ExportFileStore is a wrapper around ExportStore for a
 // specific file
 type ExportFileStore struct {
-	filePath string
+	FilePath string
 }
 
 // Insert inserts the key, value pair of the export context
 // represented by filePath
 func (receiver *ExportFileStore) Insert(contextKeys []string, value Result) {
 	exportStore := GetExportStore()
-	exportStore.Insert(receiver.filePath, contextKeys, value)
+	exportStore.Insert(receiver.FilePath, contextKeys, value)
 }
 
 // GetContext returns the export context associated with this
 // ExportFileStore filePath
 func (receiver *ExportFileStore) GetContext() *Context {
 	exportStore := GetExportStore()
-	return exportStore.Get(receiver.filePath)
+	return exportStore.Get(receiver.FilePath)
 }
 
 // GetFileContext returns the context associated with the given filePath

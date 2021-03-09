@@ -959,7 +959,7 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 
 	expected := ""
 	pathReader := getTestPathReader(3)
-	exportStore := &ExportFileStore{filePath: ""}
+	exportStore := &ExportFileStore{FilePath: ""}
 	exportStore.Insert([]string{"date"}, StringResult("some-date-someday"))
 
 	for i := 0; i < len(pathReader("")); i++ {
