@@ -197,7 +197,8 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 		{
 			"{{ title = `this is the title`;\n  date= `2021-03-08`; }}\n# This is a test", []string{
 				"BlockToken", "IdentToken", "AssignOpToken", "StrToken", "SymbolToken", "IdentToken",
-				"AssignOpToken", "StrToken", "SymbolToken", "BlockToken", "EOLToken",
+				"AssignOpToken", "StrToken", "SymbolToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"PassthroughToken",
 			},
 		},
 	}
