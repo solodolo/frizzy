@@ -156,7 +156,7 @@ func (token ForToken) GetValue() string {
 }
 
 func (token ForToken) GetGrammarSymbol() string {
-	return "FOR"
+	return token.GetValue()
 }
 
 type InToken struct {
@@ -168,7 +168,7 @@ func (token InToken) GetValue() string {
 }
 
 func (token InToken) GetGrammarSymbol() string {
-	return "IN"
+	return token.GetValue()
 }
 
 type IfToken struct {
@@ -180,7 +180,7 @@ func (token IfToken) GetValue() string {
 }
 
 func (token IfToken) GetGrammarSymbol() string {
-	return "IF"
+	return token.GetValue()
 }
 
 type ElseIfToken struct {
@@ -192,7 +192,7 @@ func (token ElseIfToken) GetValue() string {
 }
 
 func (token ElseIfToken) GetGrammarSymbol() string {
-	return "ELSE_IF"
+	return token.GetValue()
 }
 
 type ElseToken struct {
@@ -316,5 +316,5 @@ func (token PassthroughToken) GetValue() string {
 }
 
 func (token PassthroughToken) GetGrammarSymbol() string {
-	return ""
+	return "PASSTHROUGH"
 }
