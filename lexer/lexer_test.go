@@ -33,11 +33,10 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 		{"if", "IfToken"},
 		{"else_if", "ElseIfToken"},
 		{"else", "ElseToken"},
-		{"end", "EndToken"},
+		{"{{end}}", "EndToken"},
 		{"post", "IdentToken"},
 		{"true", "BoolToken"},
 		{"false", "BoolToken"},
-		{";", "SymbolToken"},
 		{"(", "SymbolToken"},
 		{")", "SymbolToken"},
 		{"{{", "BlockToken"},
@@ -60,18 +59,19 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 		line       string
 		tokenTypes []string
 	}{
-		{`<html></html>`, []string{"PassthroughToken"}},
-		{`<html>{{"blah"}}</html>`, []string{"PassthroughToken", "BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"}},
+		{`<html></html>`, []string{"PassthroughToken", "EOLToken"}},
+		{`<html>{{"blah"}}</html>`, []string{"PassthroughToken", "BlockToken", "StrToken", "BlockToken", "PassthroughToken", "EOLToken"}},
 		{`{{: "foo" }}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken"}},
-		{`{{ !a.b }}</html>`, []string{"BlockToken", "NegationOpToken", "IdentToken", "SymbolToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken"}},
-		{`<html>"blah"}}</html>`, []string{"PassthroughToken"}},
-		{`<html>"blah"{{ print()`, []string{"PassthroughToken", "BlockToken", "IdentToken", "SymbolToken", "SymbolToken"}},
-		{`{{ foo(a,b)`, []string{"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken"}},
+		{`{{ !a.b }}</html>`, []string{"BlockToken", "NegationOpToken", "IdentToken", "SymbolToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken"}},
+		{`<html>"blah"}}</html>`, []string{"PassthroughToken", "EOLToken"}},
+		{`<html>"blah"{{ print()`, []string{"PassthroughToken", "BlockToken", "IdentToken", "SymbolToken", "SymbolToken", "EOLToken"}},
+		{`{{ foo(a,b)`, []string{"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken", "EOLToken"}},
 		{"{{a\nb}}", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
 		{"a{{a\nb}}", []string{"PassthroughToken", "BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
-		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken"}},
+		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken"}},
 		{"{{if(true)}}", []string{"BlockToken", "IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "EOLToken"}},
-		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "EndToken", "BlockToken", "EOLToken"}},
+		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "IdentToken", "BlockToken", "EOLToken"}},
+		{"{{if}} blah {{end}}", []string{"BlockToken", "IfToken", "BlockToken", "PassthroughToken", "EndToken", "EOLToken"}},
 	}
 
 	for _, test := range tests {
@@ -109,9 +109,7 @@ func TestLexHandlesReadFailure(t *testing.T) {
 	tokChan, errChan := lexer.Lex(pipeReader)
 	expected := "lexer read error line 1: io: read/write on closed pipe"
 
-	for tokens := range tokChan {
-		t.Errorf("expecting error, got tokens %v.", tokens)
-	}
+	<-tokChan
 
 	err := <-errChan
 	if err == nil {
@@ -128,48 +126,57 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 	}{
 		{
 			"first {{a}}\nsecond", []string{
-				"PassthroughToken", "BlockToken", "IdentToken", "BlockToken", "EOLToken",
-				"PassthroughToken", "PassthroughToken",
+				"PassthroughToken", "BlockToken", "IdentToken", "BlockToken",
+				"PassthroughToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
 			"{{a-}\nsecond", []string{
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
 			"{{a-}        \nsecond", []string{
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
 			"{{a-}          second", []string{
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
-			"foo bar", []string{"PassthroughToken"},
+			"foo bar", []string{"PassthroughToken", "EOLToken"},
 		},
 		{
-			"{{\nfor a in b", []string{"BlockToken", "ForToken", "IdentToken", "InToken", "IdentToken"},
+			"{{for a in b", []string{"BlockToken", "ForToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
+		},
+		{
+			"{{\nfor a in b", []string{"BlockToken", "PassthroughToken", "ForToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
 		},
 		{
 			`{{: "Foo"}}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken"},
 		},
 		{
-			"{{: \"Foo\"}}\n", []string{"BlockToken", "StrToken", "BlockToken", "EOLToken", "PassthroughToken"},
+			"{{: \"Foo\"}}\n", []string{"BlockToken", "StrToken", "BlockToken", "PassthroughToken", "EOLToken"},
 		},
 		{
 			"{{: title}}\n{{: title}}\n{{: title}}", []string{
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
-				"BlockToken", "IdentToken", "BlockToken", "EOLToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "PassthroughToken",
+				"BlockToken", "IdentToken", "BlockToken", "PassthroughToken",
 				"BlockToken", "IdentToken", "BlockToken", "EOLToken",
+			},
+		},
+		{
+			"{{print(a)}}blah", []string{
+				"BlockToken", "IdentToken", "SymbolToken", "IdentToken",
+				"SymbolToken", "BlockToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
 			"{{print(a)\n}}blah", []string{
 				"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "SymbolToken",
-				"BlockToken", "EOLToken", "PassthroughToken",
+				"PassthroughToken", "BlockToken", "PassthroughToken", "EOLToken",
 			},
 		},
 		{
@@ -178,27 +185,31 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 			},
 		},
 		{
-			"{{post.", []string{"BlockToken", "IdentToken", "SymbolToken"},
+			"{{post.", []string{"BlockToken", "IdentToken", "SymbolToken", "EOLToken"},
 		},
 		{
-			"{{(a < b)", []string{"BlockToken", "SymbolToken", "IdentToken", "RelOpToken", "IdentToken", "SymbolToken"},
-		},
-		{
-			"", []string{},
-		},
-		{
-			"{{a.b && b.a", []string{
-				"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "LogicOpToken", "IdentToken", "SymbolToken", "IdentToken",
+			"{{(a < b)", []string{
+				"BlockToken", "SymbolToken", "IdentToken", "RelOpToken",
+				"IdentToken", "SymbolToken", "EOLToken",
 			},
 		},
 		{
-			"{{foo || false", []string{"BlockToken", "IdentToken", "LogicOpToken", "BoolToken"},
+			"", []string{"EOLToken"},
+		},
+		{
+			"{{a.b && b.a", []string{
+				"BlockToken", "IdentToken", "SymbolToken", "IdentToken", "LogicOpToken",
+				"IdentToken", "SymbolToken", "IdentToken", "EOLToken",
+			},
+		},
+		{
+			"{{foo || false", []string{"BlockToken", "IdentToken", "LogicOpToken", "BoolToken", "EOLToken"},
 		},
 		{
 			"{{ title = `this is the title`;\n  date= `2021-03-08`; }}\n# This is a test", []string{
-				"BlockToken", "IdentToken", "AssignOpToken", "StrToken", "SymbolToken", "IdentToken",
-				"AssignOpToken", "StrToken", "SymbolToken", "BlockToken", "EOLToken", "PassthroughToken",
-				"PassthroughToken",
+				"BlockToken", "IdentToken", "AssignOpToken", "StrToken", "PassthroughToken", "PassthroughToken", "IdentToken",
+				"AssignOpToken", "StrToken", "PassthroughToken", "BlockToken", "PassthroughToken",
+				"PassthroughToken", "EOLToken",
 			},
 		},
 	}
@@ -236,13 +247,13 @@ func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 		lines    string
 		lineNums []int
 	}{
-		{"first {{a}}\nsecond", []int{1, 1, 1, 1, 1, 1, 2}},
-		{"foo bar", []int{1}},
-		{"{{\nfor a in b", []int{1, 2, 2, 2, 2}},
-		{`{{: "Foo"}}`, []int{1, 1, 1}},
-		{"{{: post}}\n{{: post}}\n{{: post}}", []int{1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3}},
-		{"{{print(a)\n\n}}blah", []int{1, 1, 1, 1, 1, 3, 3, 3}},
-		{"a\nb\nc\n\n\nf", []int{1, 2, 3, 4, 5, 6}},
+		{"first {{a}}\nsecond", []int{1, 1, 1, 1, 1, 2, 2}},
+		{"foo bar", []int{1, 1}},
+		{"{{\nfor a in b", []int{1, 1, 2, 2, 2, 2}},
+		{`{{: "Foo"}}`, []int{1, 1, 1, 1}},
+		{"{{: post}}\n{{: post}}\n{{: post}}", []int{1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3}},
+		{"{{print(a)\n\n}}blah", []int{1, 1, 1, 1, 1, 1, 2, 3, 3, 3}},
+		{"a\nb\nc\n\n\nf", []int{1, 2, 3, 4, 5, 6, 6}},
 	}
 
 	for testNum, test := range tests {

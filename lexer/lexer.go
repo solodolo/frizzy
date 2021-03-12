@@ -16,16 +16,16 @@ var (
 	assignOp             = regexp.MustCompile(`^=`)
 	unaryOp              = regexp.MustCompile(`^!`)
 	identExp             = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
-	strExp               = regexp.MustCompile(`(?m)^"[^"]*"`)
+	strExp               = regexp.MustCompile(`^"[^"]*"`)
 	numExp               = regexp.MustCompile(`^[0-9]+`)
 	ifExp                = regexp.MustCompile(`^if`)
 	elseIfExp            = regexp.MustCompile(`^else_if`)
 	elseExp              = regexp.MustCompile(`^else`)
 	forExp               = regexp.MustCompile(`^for`)
 	inExp                = regexp.MustCompile(`^in`)
-	endExp               = regexp.MustCompile(`^end`)
+	endExp               = regexp.MustCompile(`^{{end}}`)
 	boolExp              = regexp.MustCompile(`^(true|false)`)
-	symbolExp            = regexp.MustCompile(`^[;(),\.]`)
+	symbolExp            = regexp.MustCompile(`^[(),\.]`)
 	noWhitespaceBlockExp = regexp.MustCompile(`^-}`)
 	blockExp             = regexp.MustCompile(`^({{:|{{|}})`)
 	openBlockExp         = regexp.MustCompile(`{{:|{{`)
@@ -149,6 +149,11 @@ func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
 
 			inputLine, ok = receiver.getLineToProcess(inputLine)
 		}
+
+		// send final EOL token
+		EOLTok := EOLToken{}
+		EOLTok.LineNum = inputLine.lineNum
+		tokChan <- []Token{EOLTok}
 	}(receiver)
 
 	return tokChan, errChan
@@ -206,11 +211,6 @@ func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, Input
 			toks = append(toks, tok)
 		}
 		currentLine, ok = receiver.getLineToProcess(remaining)
-	}
-
-	// if the state changed from inBlock to some passthrough state
-	if receiver.state == passthrough || receiver.state == passthroughNoWhitespace {
-		toks = append(toks, EOLToken{TokenData: TokenData{LineNum: currentLine.lineNum}})
 	}
 
 	return toks, currentLine
@@ -334,9 +334,19 @@ func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine)
 			receiver.state = passthrough
 		}
 		return token, remaining
-	}
+	} else {
+		// return char as passthrough
+		var (
+			value     = ""
+			remaining = ""
+		)
 
-	return nil, inputLine
+		if len(inputLine.line) > 0 {
+			value = inputLine.line[:1]
+			remaining = inputLine.line[1:]
+		}
+		return PassthroughToken{Value: value, TokenData: tokData}, InputLine{line: remaining}
+	}
 }
 
 // Extract the token between [loc[0],loc[1]) from the line
