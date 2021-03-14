@@ -9,6 +9,32 @@ import (
 	"mettlach.codes/frizzy/lexer"
 )
 
+func testParsesNoErrors(test struct {
+	tokens [][]lexer.Token
+	nodes  []TreeNode
+}, t *testing.T) {
+	tokChan := getTokChan(test.tokens)
+	nodeChan := make(chan TreeNode)
+	errChan := make(chan error)
+
+	go Parse(tokChan, nodeChan, errChan)
+
+	nodes := []TreeNode{}
+	for node := range nodeChan {
+		nodes = append(nodes, node)
+	}
+
+	err := <-errChan
+
+	if err != nil {
+		t.Errorf("Expected no errors. Got %q.", err.Error())
+	}
+
+	if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
+		t.Error(msg)
+	}
+}
+
 func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 	tokChan := make(chan []lexer.Token)
 
@@ -49,21 +75,557 @@ func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 	}
 }
 
-func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
+func TestIfBlockParsesNoErrors(t *testing.T) {
 	var tests = []struct {
 		tokens [][]lexer.Token
 		nodes  []TreeNode
 	}{
 		{
 			tokens: [][]lexer.Token{{
-				lexer.BlockToken{Block: "{{"},
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
 				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
 				lexer.EOLToken{},
 			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.PassthroughToken{Value: "<p>bar</p>"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "foo.bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "foo.bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<span>abc</span>"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testParsesNoErrors(test, t)
+	}
+}
+
+func TestIfElseIfParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>bar</p>"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testParsesNoErrors(test, t)
+	}
+}
+
+func TestIfElseIfElseParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.ElseToken{},
+				lexer.BlockToken{Block: "{{"},
+				lexer.NumToken{Num: "42"},
+				lexer.AddOpToken{},
+				lexer.NumToken{Num: "41"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+
+				lexer.ElseToken{},
+
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+
+				lexer.ElseIfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+
+				lexer.ElseToken{},
+
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseToken{},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.EndToken{},
+
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testParsesNoErrors(test, t)
+	}
+}
+
+func TestIfElseParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
+		{
+			tokens: [][]lexer.Token{{
+				lexer.IfToken{},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.BoolToken{Value: "true"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.ElseToken{},
+				lexer.PassthroughToken{Value: "<p>bar</p>"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testParsesNoErrors(test, t)
+	}
+}
+
+func TestForLoopParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.StrToken{Str: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<p>foo</p>"},
+				lexer.PassthroughToken{Value: "<p>bar</p>"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.StrToken{Str: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "baz"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "fozz"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.StrToken{Str: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<h1>bar</h1>"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "baz"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<h1>bar</h1>"},
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "fozz"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "<h1>bar</h1>"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.StrToken{Str: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "fizz"},
+				lexer.InToken{},
+				lexer.StrToken{Str: "buzz"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "foo"},
+				lexer.EndToken{},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "foo"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "foo"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.ForToken{},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.InToken{},
+				lexer.IdentToken{Identifier: "post"},
+				lexer.SymbolToken{Symbol: "."},
+				lexer.IdentToken{Identifier: "title"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "foo"},
+				lexer.EndToken{},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		testParsesNoErrors(test, t)
+	}
+}
+
+func TestBlockParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
 		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
@@ -78,7 +640,7 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
-				lexer.NumToken{Num: "5"},
+				lexer.IdentToken{Identifier: "foo"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
 			}},
@@ -89,11 +651,9 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
-				lexer.IfToken{},
-				lexer.SymbolToken{Symbol: "("},
-				lexer.BoolToken{Value: "false"},
-				lexer.SymbolToken{Symbol: ")"},
-				lexer.EndToken{},
+				lexer.StrToken{Str: "foo"},
+				lexer.AddOpToken{},
+				lexer.StrToken{Str: "bar"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
 			}},
@@ -104,15 +664,8 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 		{
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
-				lexer.IfToken{},
-				lexer.SymbolToken{Symbol: "("},
-				lexer.BoolToken{Value: "false"},
-				lexer.SymbolToken{Symbol: ")"},
-				lexer.ElseIfToken{},
-				lexer.SymbolToken{Symbol: "("},
+				lexer.NegationOpToken{},
 				lexer.BoolToken{Value: "true"},
-				lexer.SymbolToken{Symbol: ")"},
-				lexer.EndToken{},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
 			}},
@@ -121,219 +674,218 @@ func TestNonPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.IfToken{},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.BoolToken{Value: "false"},
-					lexer.SymbolToken{Symbol: ")"},
-				},
-				{
-					lexer.ElseIfToken{},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.BoolToken{Value: "true"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.EndToken{},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "10"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-				{
-					lexer.BlockToken{Block: "{{:"},
-					lexer.StrToken{Str: "bar"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
-			nodes: []TreeNode{
-				&NonTerminalParseNode{},
-				&NonTerminalParseNode{},
-			},
-		},
-		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-					lexer.PassthroughToken{},
-				},
-				{
-					lexer.BlockToken{Block: "{{:"},
-					lexer.StrToken{Str: "bar"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
-			nodes: []TreeNode{
-				&NonTerminalParseNode{},
-				&StringParseNode{},
-				&NonTerminalParseNode{},
-			},
-		},
-		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.NumToken{Num: "5"},
-					lexer.MultOpToken{Operator: "*"},
-					lexer.NumToken{Num: "4"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.UnaryOpToken{Operator: "!"},
-					lexer.BoolToken{},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.StrToken{Str: "foo"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{:"},
-					lexer.VarToken{Variable: "post.title"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.StrToken{Str: "foo"},
+				lexer.SymbolToken{Symbol: ","},
+				lexer.NumToken{Num: "5"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
 			},
+		},
+
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		tokChan := getTokChan(test.tokens)
+		nodeChan := make(chan TreeNode)
+		errChan := make(chan error)
+
+		go Parse(tokChan, nodeChan, errChan)
+
+		nodes := []TreeNode{}
+		for node := range nodeChan {
+			nodes = append(nodes, node)
+		}
+
+		err := <-errChan
+
+		if err != nil {
+			t.Errorf("Expected no errors. Got %q.", err.Error())
+		}
+
+		if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
+			t.Error(msg)
+		}
+	}
+}
+
+func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
+	var tests = []struct {
+		tokens [][]lexer.Token
+		nodes  []TreeNode
+	}{
+		{
+			tokens: [][]lexer.Token{{
+				lexer.PassthroughToken{},
+				lexer.BlockToken{Block: "{{"},
+				lexer.StrToken{Str: "foo"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{:"},
-					lexer.IdentToken{Identifier: "bar"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-				},
-				{
-					lexer.IfToken{},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.IdentToken{Identifier: "foo"},
-					lexer.RelOpToken{Operator: "<"},
-					lexer.IdentToken{Identifier: "bar"},
-					lexer.SymbolToken{Symbol: ")"},
-				},
-				{
-					lexer.IdentToken{Identifier: "print"},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.StrToken{Str: "foo"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.SymbolToken{Symbol: ";"},
-					lexer.IdentToken{Identifier: "print"},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.StrToken{Str: "not bar"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.SymbolToken{Symbol: ";"},
-				},
-				{
-					lexer.ElseIfToken{},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.IdentToken{Identifier: "foo"},
-					lexer.RelOpToken{Operator: ">"},
-					lexer.IdentToken{Identifier: "bar"},
-					lexer.SymbolToken{Symbol: ")"},
-				},
-				{
-					lexer.IdentToken{Identifier: "print"},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.StrToken{Str: "bar"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.SymbolToken{Symbol: ";"},
-					lexer.IdentToken{Identifier: "print"},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.StrToken{Str: "not foo"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.SymbolToken{Symbol: ";"},
-				},
-				{
-					lexer.ElseToken{},
-				},
-				{
-					lexer.IdentToken{Identifier: "print"},
-					lexer.SymbolToken{Symbol: "("},
-					lexer.StrToken{Str: "not bar not foo"},
-					lexer.SymbolToken{Symbol: ")"},
-					lexer.SymbolToken{Symbol: ";"},
-					lexer.EndToken{},
-				},
-				{
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.StrToken{Str: "foo"},
+				lexer.AddOpToken{},
+				lexer.StrToken{Str: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.VarToken{Variable: "foo.title"},
-					lexer.AssignOpToken{Operator: "="},
-					lexer.NumToken{Num: "5"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
-			},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.NegationOpToken{},
+				lexer.BoolToken{Value: "true"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
 		},
 		{
-			tokens: [][]lexer.Token{
-				{
-					lexer.BlockToken{Block: "{{"},
-					lexer.VarToken{Variable: "foo.title"},
-					lexer.AssignOpToken{Operator: "="},
-					lexer.NumToken{Num: "5"},
-					lexer.SymbolToken{Symbol: ";"},
-					lexer.VarToken{Variable: "bar.baz"},
-					lexer.AssignOpToken{Operator: "="},
-					lexer.NumToken{Num: "1"},
-					lexer.SymbolToken{Symbol: ";"},
-					lexer.BlockToken{Block: "}}"},
-					lexer.EOLToken{},
-				},
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.SubOpToken{},
+				lexer.NumToken{Num: "10"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
 			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.StrToken{Str: "foo"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.StrToken{Str: "foo"},
+				lexer.SymbolToken{Symbol: ","},
+				lexer.NumToken{Num: "5"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{"},
+				lexer.IdentToken{Identifier: "print"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
 			},
@@ -422,7 +974,7 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 				{
 					lexer.BlockToken{Block: "{{"},
 					lexer.ForToken{},
-					lexer.AddOpToken{Operator: "+"},
+					lexer.AddOpToken{},
 				},
 			},
 			errMsg: `unexpected symbol "ADD_OP"`,
@@ -432,7 +984,7 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 				{
 					lexer.BlockToken{Block: "{{"},
 					lexer.ForToken{},
-					lexer.AddOpToken{Operator: "-"},
+					lexer.SubOpToken{},
 				},
 			},
 			errMsg: `unexpected symbol "ADD_OP"`,
@@ -517,7 +1069,9 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			tokens: [][]lexer.Token{
 				{
 					lexer.BlockToken{Block: "{{:"},
-					lexer.VarToken{Variable: "post.title"},
+					lexer.IdentToken{Identifier: "post"},
+					lexer.SymbolToken{Symbol: "."},
+					lexer.IdentToken{Identifier: "title"},
 					lexer.BlockToken{Block: "}}"},
 					lexer.EOLToken{},
 				},
@@ -537,7 +1091,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 				&NonTerminalParseNode{Value: "N"},
 				&NonTerminalParseNode{Value: "O"},
 				&NonTerminalParseNode{Value: "P"},
-				&VarParseNode{Value: "post.title"},
+				&IdentParseNode{Value: "post.title"},
 			},
 		},
 		{
@@ -569,7 +1123,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
 				lexer.NumToken{Num: "2"},
-				lexer.AddOpToken{Operator: "+"},
+				lexer.AddOpToken{},
 				lexer.NumToken{Num: "5"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
@@ -601,7 +1155,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
 				lexer.NumToken{Num: "2"},
-				lexer.AddOpToken{Operator: "+"},
+				lexer.AddOpToken{},
 				lexer.NumToken{Num: "5"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
@@ -633,7 +1187,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
 				lexer.NumToken{Num: "2"},
-				lexer.AddOpToken{Operator: "-"},
+				lexer.SubOpToken{},
 				lexer.NumToken{Num: "5"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
@@ -668,7 +1222,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 					lexer.NumToken{Num: "2"},
 				},
 				{
-					lexer.AddOpToken{Operator: "+"},
+					lexer.AddOpToken{},
 					lexer.NumToken{Num: "5"},
 				},
 				{
@@ -1141,7 +1695,9 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 					lexer.SymbolToken{Symbol: "("},
 					lexer.IdentToken{Identifier: "foo"},
 					lexer.InToken{},
-					lexer.VarToken{Variable: "post.children"},
+					lexer.IdentToken{Identifier: "post"},
+					lexer.SymbolToken{Symbol: "."},
+					lexer.IdentToken{Identifier: "title"},
 					lexer.SymbolToken{Symbol: ")"},
 				},
 				{
@@ -1170,7 +1726,7 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 				&StringParseNode{Value: "("},
 				&IdentParseNode{Value: "foo"},
 				&IdentParseNode{Value: "in"},
-				&VarParseNode{Value: "post.children"},
+				&IdentParseNode{Value: "post.children"},
 				&StringParseNode{Value: ")"},
 				&NonTerminalParseNode{Value: "V"},
 				&IdentParseNode{Value: "end"},
@@ -1265,15 +1821,21 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 			tokens: [][]lexer.Token{
 				{
 					lexer.BlockToken{Block: "{{"},
-					lexer.VarToken{Variable: "foo.title"},
+					lexer.IdentToken{Identifier: "post"},
+					lexer.SymbolToken{Symbol: "."},
+					lexer.IdentToken{Identifier: "title"},
 					lexer.AssignOpToken{Operator: "="},
 					lexer.NumToken{Num: "5"},
 					lexer.SymbolToken{Symbol: ";"},
-					lexer.VarToken{Variable: "bar.baz"},
+					lexer.IdentToken{Identifier: "bar"},
+					lexer.SymbolToken{Symbol: "."},
+					lexer.IdentToken{Identifier: "baz"},
 					lexer.AssignOpToken{Operator: "="},
 					lexer.NumToken{Num: "1"},
 					lexer.SymbolToken{Symbol: ";"},
-					lexer.VarToken{Variable: "bar.baz"},
+					lexer.IdentToken{Identifier: "bar"},
+					lexer.SymbolToken{Symbol: "."},
+					lexer.IdentToken{Identifier: "baz"},
 					lexer.AssignOpToken{Operator: "="},
 					lexer.NumToken{Num: "1"},
 					lexer.SymbolToken{Symbol: ";"},
@@ -1300,15 +1862,15 @@ func TestParserBuildsCorrectTree(t *testing.T) {
 				&NonTerminalParseNode{Value: "F"},
 				&StringParseNode{Value: ";"},
 				&NonTerminalParseNode{Value: "K"},
-				&VarParseNode{Value: "bar.baz"},
+				&IdentParseNode{Value: "bar.baz"},
 				&StringParseNode{Value: "="},
 				&NonTerminalParseNode{Value: "K"},
 				&NonTerminalParseNode{Value: "K"},
-				&VarParseNode{Value: "bar.baz"},
+				&IdentParseNode{Value: "bar.baz"},
 				&StringParseNode{Value: "="},
 				&NonTerminalParseNode{Value: "K"},
 				&NonTerminalParseNode{Value: "L"},
-				&VarParseNode{Value: "foo.title"},
+				&IdentParseNode{Value: "foo.title"},
 				&StringParseNode{Value: "="},
 				&NonTerminalParseNode{Value: "K"},
 				&NonTerminalParseNode{Value: "L"},
