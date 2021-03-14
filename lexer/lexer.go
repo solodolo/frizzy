@@ -18,10 +18,10 @@ var (
 	identExp             = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
 	strExp               = regexp.MustCompile(`^"[^"]*"`)
 	numExp               = regexp.MustCompile(`^[0-9]+`)
-	ifExp                = regexp.MustCompile(`^if`)
-	elseIfExp            = regexp.MustCompile(`^else_if`)
-	elseExp              = regexp.MustCompile(`^else`)
-	forExp               = regexp.MustCompile(`^for`)
+	ifExp                = regexp.MustCompile(`^{{if`)
+	elseIfExp            = regexp.MustCompile(`^{{else_if`)
+	elseExp              = regexp.MustCompile(`^{{else}}`)
+	forExp               = regexp.MustCompile(`^{{for`)
 	inExp                = regexp.MustCompile(`^in`)
 	endExp               = regexp.MustCompile(`^{{end}}`)
 	boolExp              = regexp.MustCompile(`^(true|false)`)
@@ -304,6 +304,7 @@ func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine)
 	} else if loc := elseExp.FindStringIndex(inputLine.line); loc != nil {
 		_, remaining := extractToken(loc, inputLine)
 		token := ElseToken{TokenData: tokData}
+		receiver.state = passthrough
 		return token, remaining
 	} else if loc := forExp.FindStringIndex(inputLine.line); loc != nil {
 		_, remaining := extractToken(loc, inputLine)
@@ -316,6 +317,7 @@ func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine)
 	} else if loc := endExp.FindStringIndex(inputLine.line); loc != nil {
 		_, remaining := extractToken(loc, inputLine)
 		token := EndToken{TokenData: tokData}
+		receiver.state = passthrough
 		return token, remaining
 	} else if loc := identExp.FindStringIndex(inputLine.line); loc != nil {
 		// Ident should come after more specific tokens like bool and var

@@ -29,10 +29,10 @@ func TestGetLineTokensReturnsCorrectTokenType(t *testing.T) {
 		{"&&", "LogicOpToken"},
 		{"123", "NumToken"},
 		{`"foobar"`, "StrToken"},
-		{"for", "ForToken"},
-		{"if", "IfToken"},
-		{"else_if", "ElseIfToken"},
-		{"else", "ElseToken"},
+		{"{{for", "ForToken"},
+		{"{{if", "IfToken"},
+		{"{{else_if", "ElseIfToken"},
+		{"{{else}}", "ElseToken"},
 		{"{{end}}", "EndToken"},
 		{"post", "IdentToken"},
 		{"true", "BoolToken"},
@@ -69,9 +69,10 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 		{"{{a\nb}}", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
 		{"a{{a\nb}}", []string{"PassthroughToken", "BlockToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
 		{"{{a\nb}}c", []string{"BlockToken", "IdentToken", "IdentToken", "BlockToken", "PassthroughToken", "EOLToken"}},
-		{"{{if(true)}}", []string{"BlockToken", "IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "EOLToken"}},
-		{"{{if else_if else end}}", []string{"BlockToken", "IfToken", "ElseIfToken", "ElseToken", "IdentToken", "BlockToken", "EOLToken"}},
-		{"{{if}} blah {{end}}", []string{"BlockToken", "IfToken", "BlockToken", "PassthroughToken", "EndToken", "EOLToken"}},
+		{"{{if(true)}}", []string{"IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "EOLToken"}},
+		{"{{if else_if else end}}", []string{"IfToken", "IdentToken", "IdentToken", "IdentToken", "BlockToken", "EOLToken"}},
+		{"{{if}} blah {{end}}", []string{"IfToken", "BlockToken", "PassthroughToken", "EndToken", "EOLToken"}},
+		{"{{else}}<h1>foo</h1>{{end}}", []string{"ElseToken", "PassthroughToken", "EndToken", "EOLToken"}},
 	}
 
 	for _, test := range tests {
@@ -149,10 +150,10 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 			"foo bar", []string{"PassthroughToken", "EOLToken"},
 		},
 		{
-			"{{for a in b", []string{"BlockToken", "ForToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
+			"{{for a in b", []string{"ForToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
 		},
 		{
-			"{{\nfor a in b", []string{"BlockToken", "PassthroughToken", "ForToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
+			"{{\nfor a in b", []string{"BlockToken", "PassthroughToken", "IdentToken", "IdentToken", "InToken", "IdentToken", "EOLToken"},
 		},
 		{
 			`{{: "Foo"}}`, []string{"BlockToken", "StrToken", "BlockToken", "EOLToken"},
@@ -210,6 +211,24 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 				"BlockToken", "IdentToken", "AssignOpToken", "StrToken", "PassthroughToken", "PassthroughToken", "IdentToken",
 				"AssignOpToken", "StrToken", "PassthroughToken", "BlockToken", "PassthroughToken",
 				"PassthroughToken", "EOLToken",
+			},
+		},
+		{
+			"{{if (false) }}blah{{else_if (true)}}blah{{else}}blah{{end}}", []string{
+				"IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
+				"ElseIfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
+				"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
+			},
+		},
+		{
+			"{{else}}<h1>foo</h1>{{end}}", []string{
+				"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
+			},
+		},
+		{
+			"{{for foo in bar}}<h1>test</h1>{{end}}", []string{
+				"ForToken", "IdentToken", "InToken", "IdentToken", "BlockToken",
+				"PassthroughToken", "EndToken", "EOLToken",
 			},
 		},
 	}
