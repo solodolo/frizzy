@@ -207,29 +207,21 @@ func getTerminalNodeForToken(token lexer.Token) TreeNode {
 
 func getNonTerminalNodeForReduction(reduction string) TreeNode {
 	switch reduction {
-	case "G":
-		return &StatementListParseNode{}
-	case "H":
+	case "content":
+		return &ContentParseNode{}
+	case "func_call":
 		return &FuncCallParseNode{}
-	case "I":
+	case "args":
 		return &ArgsParseNode{}
-	case "J":
+	case "arg_list":
 		return &ArgsListParseNode{}
-	case "Q":
+	case "if_statement_block":
 		return &IfStatementParseNode{}
-	case "R":
+	case "for_block":
 		return &ForLoopParseNode{}
-	case "S":
-		return &ElseIfConditionalParseNode{}
-	case "T":
-		return &ElseParseNode{}
-	case "V":
-		return &MultiStatementParseNode{}
-	case "W":
-		return &IfConditionalParseNode{}
-	case "X":
+	case "else_if_list":
 		return &ElseIfListParseNode{}
-	case "Y":
+	case "var_name":
 		return &VarNameParseNode{}
 	default:
 		return &NonTerminalParseNode{Value: reduction}
