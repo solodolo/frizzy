@@ -93,6 +93,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 			}
 			return StringResult(ret)
 		}
+	case *parser.ContentParseNode:
+		children := typedNode.GetChildren()
+		resultText := make([]string, 0, len(children))
+
+		for _, child := range children {
+			resultText = append(resultText, receiver.processHeadNode(child).String())
+		}
+
+		return StringResult(strings.Join(resultText, ""))
 	case *parser.MultiStatementParseNode:
 		statements := typedNode.GetStatements()
 		resultText := make([]string, len(statements))
