@@ -35,7 +35,7 @@ func (receiver *IfStatementParseNode) GetIfBody() TreeNode {
 }
 
 func (receiver *IfStatementParseNode) getElseIfList() (*ElseIfListParseNode, bool) {
-	elseIf, ok := receiver.children[1].(*ElseIfListParseNode)
+	elseIf, ok := receiver.children[4].(*ElseIfListParseNode)
 	return elseIf, ok
 }
 

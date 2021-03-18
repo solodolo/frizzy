@@ -709,9 +709,9 @@ func TestProcessedVarNodeReturnsContainerValue(t *testing.T) {
 func TestTrueIfReturnsIfBody(t *testing.T) {
 	expected := "the if body"
 	condition := []lexer.Token{lexer.BoolToken{Value: "true"}}
-	body := []lexer.Token{lexer.StrToken{Str: expected}}
-
-	head := generateTree(generateIfTokens(condition, body, true))
+	body := []lexer.Token{lexer.PassthroughToken{Value: expected}}
+	ifTokens := generateIfTokens(condition, body, true)
+	head := generateTree(ifTokens)
 
 	resultChan := runProcess(head)
 	result := <-resultChan
@@ -725,8 +725,8 @@ func TestTrueIfReturnsIfMultilineBody(t *testing.T) {
 	expected := "the if body\nmore if body"
 	condition := []lexer.Token{lexer.BoolToken{Value: "true"}}
 	body := []lexer.Token{
-		lexer.StrToken{Str: "the if body"},
-		lexer.StrToken{Str: "more if body"},
+		lexer.PassthroughToken{Value: "the if body\n"},
+		lexer.PassthroughToken{Value: "more if body"},
 	}
 
 	head := generateTree(generateIfTokens(condition, body, true))
@@ -757,9 +757,9 @@ func TestFalseIfReturnsEmptyBody(t *testing.T) {
 func TestTrueIfDoesNotReturnElseBody(t *testing.T) {
 	expected := "the if body"
 	condition := []lexer.Token{lexer.BoolToken{Value: "true"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: expected}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: expected}}
 	ifToks := generateIfTokens(condition, ifBody, false)
-	elseBody := []lexer.Token{lexer.StrToken{Str: "the else body"}}
+	elseBody := []lexer.Token{lexer.PassthroughToken{Value: "the else body"}}
 	elseToks := generateElseTokens(elseBody)
 
 	head := generateTree(append(ifToks, elseToks...))
@@ -776,9 +776,9 @@ func TestTrueIfDoesNotReturnElseBody(t *testing.T) {
 func TestFalseIfReturnsElseBody(t *testing.T) {
 	expected := "the else body"
 	condition := []lexer.Token{lexer.BoolToken{Value: "false"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: "the if body"}}
 	ifToks := generateIfTokens(condition, ifBody, false)
-	elseBody := []lexer.Token{lexer.StrToken{Str: expected}}
+	elseBody := []lexer.Token{lexer.PassthroughToken{Value: expected}}
 	elseToks := generateElseTokens(elseBody)
 
 	head := generateTree(append(ifToks, elseToks...))
@@ -794,7 +794,7 @@ func TestFalseIfReturnsElseBody(t *testing.T) {
 func TestMultipleTrueElseIfReturnsFirstTrue(t *testing.T) {
 	expected := "this is the one"
 	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: "the if body"}}
 	ifToks := generateIfTokens(ifCondition, ifBody, false)
 
 	elseIfConditions := [][]lexer.Token{
@@ -804,9 +804,9 @@ func TestMultipleTrueElseIfReturnsFirstTrue(t *testing.T) {
 	}
 
 	elseIfBodies := [][]lexer.Token{
-		{lexer.StrToken{Str: "a"}},
-		{lexer.StrToken{Str: expected}},
-		{lexer.StrToken{Str: "a"}},
+		{lexer.PassthroughToken{Value: "a"}},
+		{lexer.PassthroughToken{Value: expected}},
+		{lexer.PassthroughToken{Value: "a"}},
 	}
 
 	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
@@ -824,7 +824,7 @@ func TestMultipleTrueElseIfReturnsFirstTrue(t *testing.T) {
 func TestMultipleFalseElseIfReturnsEmptyString(t *testing.T) {
 	expected := ""
 	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: "the if body"}}
 	ifToks := generateIfTokens(ifCondition, ifBody, false)
 
 	elseIfConditions := [][]lexer.Token{
@@ -834,9 +834,9 @@ func TestMultipleFalseElseIfReturnsEmptyString(t *testing.T) {
 	}
 
 	elseIfBodies := [][]lexer.Token{
-		{lexer.StrToken{Str: "a"}},
-		{lexer.StrToken{Str: "b"}},
-		{lexer.StrToken{Str: "c"}},
+		{lexer.PassthroughToken{Value: "a"}},
+		{lexer.PassthroughToken{Value: "b"}},
+		{lexer.PassthroughToken{Value: "c"}},
 	}
 
 	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
@@ -854,7 +854,7 @@ func TestMultipleFalseElseIfReturnsEmptyString(t *testing.T) {
 func TestMultipleTrueElseIfReturnsTrueIfBody(t *testing.T) {
 	expected := "the if body"
 	ifCondition := []lexer.Token{lexer.BoolToken{Value: "true"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: expected}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: expected}}
 	ifToks := generateIfTokens(ifCondition, ifBody, false)
 
 	elseIfConditions := [][]lexer.Token{
@@ -864,9 +864,9 @@ func TestMultipleTrueElseIfReturnsTrueIfBody(t *testing.T) {
 	}
 
 	elseIfBodies := [][]lexer.Token{
-		{lexer.StrToken{Str: "a"}},
-		{lexer.StrToken{Str: "b"}},
-		{lexer.StrToken{Str: "c"}},
+		{lexer.PassthroughToken{Value: "a"}},
+		{lexer.PassthroughToken{Value: "b"}},
+		{lexer.PassthroughToken{Value: "c"}},
 	}
 
 	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, true)
@@ -884,7 +884,7 @@ func TestMultipleTrueElseIfReturnsTrueIfBody(t *testing.T) {
 func TestMultipleFalseElseIfReturnsElseBody(t *testing.T) {
 	expected := "the else body"
 	ifCondition := []lexer.Token{lexer.BoolToken{Value: "false"}}
-	ifBody := []lexer.Token{lexer.StrToken{Str: "the if body"}}
+	ifBody := []lexer.Token{lexer.PassthroughToken{Value: "the if body"}}
 	ifToks := generateIfTokens(ifCondition, ifBody, false)
 
 	elseIfConditions := [][]lexer.Token{
@@ -894,13 +894,13 @@ func TestMultipleFalseElseIfReturnsElseBody(t *testing.T) {
 	}
 
 	elseIfBodies := [][]lexer.Token{
-		{lexer.StrToken{Str: "a"}},
-		{lexer.StrToken{Str: "b"}},
-		{lexer.StrToken{Str: "c"}},
+		{lexer.PassthroughToken{Value: "a"}},
+		{lexer.PassthroughToken{Value: "b"}},
+		{lexer.PassthroughToken{Value: "c"}},
 	}
 
 	elseIfToks := generateElseIfTokens(elseIfConditions, elseIfBodies, false)
-	elseToks := generateElseTokens([]lexer.Token{lexer.StrToken{Str: expected}})
+	elseToks := generateElseTokens([]lexer.Token{lexer.PassthroughToken{Value: expected}})
 
 	head := generateTree(append(ifToks, append(elseIfToks, elseToks...)...))
 
@@ -974,6 +974,34 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 
 	if result.String() != expected {
 		t.Errorf("expected for loop result to be %q, got %q", expected, result.String())
+	}
+}
+
+func TestContentReturnsCorrectResult(t *testing.T) {
+	head := &parser.ContentParseNode{}
+	next := &parser.ContentParseNode{}
+
+	head.SetChildren([]parser.TreeNode{
+		next,
+		&parser.StringParseNode{Value: "baz"},
+	})
+
+	cur := next
+
+	for i := 1; i < 3; i++ {
+		cur.SetChildren([]parser.TreeNode{next})
+		cur = next
+	}
+
+	str := &parser.StringParseNode{Value: "foobar\n"}
+	cur.SetChildren([]parser.TreeNode{str})
+
+	resultChan := runProcess(head)
+
+	result := <-resultChan
+
+	if result.String() != "foobar\nbaz" {
+		t.Errorf("expected content to be %q, got %q", "foobar\nbaz", result.String())
 	}
 }
 
@@ -1096,8 +1124,8 @@ func generateTree(tok []lexer.Token) parser.TreeNode {
 	go parser.Parse(tokChan, nodeChan, errChan)
 	go func() {
 		defer close(tokChan)
-		tok = append([]lexer.Token{lexer.BlockToken{Block: "{{"}}, tok...)
-		tok = append(tok, []lexer.Token{lexer.BlockToken{Block: "}}"}, lexer.EOLToken{}}...)
+		tok = append([]lexer.Token{}, tok...)
+		tok = append(tok, []lexer.Token{lexer.EOLToken{}}...)
 		tokChan <- tok
 	}()
 
@@ -1108,15 +1136,14 @@ func generateIfTokens(condition, body []lexer.Token, includeEnd bool) []lexer.To
 	ifTokens := append(
 		[]lexer.Token{
 			lexer.IfToken{},
-			lexer.SymbolToken{Symbol: "("},
 		},
 		condition...,
 	)
 
-	ifTokens = append(ifTokens, lexer.SymbolToken{Symbol: ")"})
+	ifTokens = append(ifTokens, lexer.BlockToken{Block: "}}"})
 
 	for _, bodyTok := range body {
-		ifTokens = append(ifTokens, bodyTok, lexer.SymbolToken{Symbol: ";"})
+		ifTokens = append(ifTokens, bodyTok)
 	}
 
 	if includeEnd {
@@ -1127,10 +1154,10 @@ func generateIfTokens(condition, body []lexer.Token, includeEnd bool) []lexer.To
 }
 
 func generateElseTokens(body []lexer.Token) []lexer.Token {
-	elseTokens := append([]lexer.Token{lexer.ElseToken{}})
+	elseTokens := []lexer.Token{lexer.ElseToken{}}
 
 	for _, bodyTok := range body {
-		elseTokens = append(elseTokens, bodyTok, lexer.SymbolToken{Symbol: ";"})
+		elseTokens = append(elseTokens, bodyTok)
 	}
 
 	return append(elseTokens, lexer.EndToken{})
@@ -1139,17 +1166,10 @@ func generateElseTokens(body []lexer.Token) []lexer.Token {
 func generateElseIfTokens(conditions, bodies [][]lexer.Token, includeEnd bool) []lexer.Token {
 	elseIfTokens := []lexer.Token{}
 	for i, condition := range conditions {
-		body := bodies[i]
-		elseIfToken := []lexer.Token{
-			lexer.ElseIfToken{},
-			lexer.SymbolToken{Symbol: "("},
-		}
-		elseIfToken = append(elseIfToken, condition...)
-		elseIfToken = append(elseIfToken, lexer.SymbolToken{Symbol: ")"})
-		elseIfToken = append(elseIfToken, body...)
-		elseIfToken = append(elseIfToken, lexer.SymbolToken{Symbol: ";"})
-
-		elseIfTokens = append(elseIfTokens, elseIfToken...)
+		elseIfTokens = append(elseIfTokens, lexer.ElseIfToken{})
+		elseIfTokens = append(elseIfTokens, condition...)
+		elseIfTokens = append(elseIfTokens, lexer.BlockToken{Block: "}}"})
+		elseIfTokens = append(elseIfTokens, bodies[i]...)
 	}
 
 	if includeEnd {
