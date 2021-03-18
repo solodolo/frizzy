@@ -4,6 +4,13 @@ import "fmt"
 
 // ElseIfListParseNode represents one or more else_ifs with
 // their conditionals and bodies
+// Will be a tree like
+//	|-- ElseIfListParseNode
+//		|-- ElseIfListParseNode
+//			|-- IdentParseNode: else_if
+//			|-- Expression
+//			|-- BlockParseNode
+//			|-- ContentParseNode
 type ElseIfListParseNode struct {
 	ParseNode
 	flattenedBlockChildren []*ElseIfListParseNode
@@ -62,20 +69,28 @@ func (receiver *ElseIfListParseNode) hasBlockChildren() bool {
 func (receiver *ElseIfListParseNode) GetConditional() TreeNode {
 	// if there are multiple else_ifs then the first child will be
 	// a type of ElseIfListParseNode
-	// Otherwise it will be else_if(statement)
-	var offset int
+	// Otherwise it will be ["else_if", expression]
 	if receiver.hasBlockChildren() {
-		offset = 1
+		return receiver.children[2]
 	}
 
-	return receiver.children[2+offset]
+	return receiver.children[1]
 }
 
 // GetBody returns the body of this else_if
 func (receiver *ElseIfListParseNode) GetBody() TreeNode {
 	if receiver.hasBlockChildren() {
-		return receiver.children[5]
+		return receiver.children[4]
 	}
 
-	return receiver.children[4]
+	return receiver.children[3]
+}
+
+func (receiver *ElseIfListParseNode) GetElseIfAt(index int) (*ElseIfListParseNode, bool) {
+	blockChildren := receiver.GetFlattenedBlockChildren()
+	if index >= len(blockChildren) {
+		return nil, false
+	}
+
+	return blockChildren[index], true
 }
