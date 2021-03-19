@@ -913,7 +913,7 @@ func TestMultipleFalseElseIfReturnsElseBody(t *testing.T) {
 }
 
 func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
-	bodyText := "this is the body"
+	bodyText := "this is the body\n"
 
 	condition := []lexer.Token{
 		lexer.IdentToken{Identifier: "foo"},
@@ -921,14 +921,14 @@ func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
 		lexer.StrToken{Str: "bar"},
 	}
 
-	body := [][]lexer.Token{
-		{lexer.StrToken{Str: bodyText}},
+	body := []lexer.Token{
+		lexer.PassthroughToken{Value: bodyText},
 	}
 
 	expected := ""
 	pathReader := getTestPathReader(3)
 	for i := 0; i < len(pathReader("")); i++ {
-		expected += bodyText + "\n"
+		expected += bodyText
 	}
 
 	forToks := generateForLoopTokens(condition, body)
@@ -949,12 +949,12 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 		lexer.StrToken{Str: "bar"},
 	}
 
-	body := [][]lexer.Token{
-		{
-			lexer.IdentToken{Identifier: "foo"},
-			lexer.SymbolToken{Symbol: "."},
-			lexer.IdentToken{Identifier: "date"},
-		},
+	body := []lexer.Token{
+		lexer.BlockToken{Block: "{{:"},
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "date"},
+		lexer.BlockToken{Block: "}}"},
 	}
 
 	expected := ""
@@ -963,7 +963,7 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 	exportStore.Insert([]string{"date"}, StringResult("some-date-someday"))
 
 	for i := 0; i < len(pathReader("")); i++ {
-		expected += "some-date-someday" + "\n"
+		expected += "some-date-someday\n"
 	}
 
 	forToks := generateForLoopTokens(condition, body)
@@ -1031,12 +1031,12 @@ func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
 		lexer.IdentToken{Identifier: "content"},
 	}
 
-	body := [][]lexer.Token{
-		{
-			lexer.IdentToken{Identifier: "page"},
-			lexer.SymbolToken{Symbol: "."},
-			lexer.IdentToken{Identifier: "title"},
-		},
+	body := []lexer.Token{
+		lexer.BlockToken{Block: "{{:"},
+		lexer.IdentToken{Identifier: "page"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "title"},
+		lexer.BlockToken{Block: "}}"},
 	}
 
 	forToks := generateForLoopTokens(condition, body)
@@ -1124,7 +1124,8 @@ func generateTree(tok []lexer.Token) parser.TreeNode {
 	go parser.Parse(tokChan, nodeChan, errChan)
 	go func() {
 		defer close(tokChan)
-		tok = append([]lexer.Token{}, tok...)
+		// tokens := []lexer.Token{lexer.BlockToken{Block: "{{"}}
+		// tokens = append(tokens, tok...)
 		tok = append(tok, []lexer.Token{lexer.EOLToken{}}...)
 		tokChan <- tok
 	}()
@@ -1179,18 +1180,14 @@ func generateElseIfTokens(conditions, bodies [][]lexer.Token, includeEnd bool) [
 	return elseIfTokens
 }
 
-func generateForLoopTokens(condition []lexer.Token, body [][]lexer.Token) []lexer.Token {
+func generateForLoopTokens(condition []lexer.Token, body []lexer.Token) []lexer.Token {
 	forLoopTokens := []lexer.Token{
 		lexer.ForToken{},
-		lexer.SymbolToken{Symbol: "("},
 	}
 
 	forLoopTokens = append(forLoopTokens, condition...)
-	forLoopTokens = append(forLoopTokens, lexer.SymbolToken{Symbol: ")"})
-	for _, bodyToks := range body {
-		forLoopTokens = append(forLoopTokens, bodyToks...)
-		forLoopTokens = append(forLoopTokens, lexer.SymbolToken{Symbol: ";"})
-	}
+	forLoopTokens = append(forLoopTokens, lexer.BlockToken{Block: "}}"})
+	forLoopTokens = append(forLoopTokens, body...)
 
 	return append(forLoopTokens, lexer.EndToken{})
 }

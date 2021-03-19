@@ -17,32 +17,23 @@ func (receiver *ForLoopParseNode) String() string {
 }
 
 // GetLoopIdent returns the loop identifier
-// Given for(foo in "bar"), returns IdentParseNode{foo}
-func (receiver *ForLoopParseNode) GetLoopIdent() *IdentParseNode {
-	// expects children to be {"for", "(", "foo", ...}
+// Given {{for foo in bar}}, returns TreeNode{foo}
+func (receiver *ForLoopParseNode) GetLoopIdent() TreeNode {
+	// expects children to be {"for", "foo", "in", "bar", "}}", content}
 	// where "foo" is the loop ident
-	return receiver.children[2].(*IdentParseNode)
+	return receiver.children[1]
 }
 
 // GetLoopInput returns the loop input
-// Given for(foo in "bar") returns TreeNode{"bar"}
+// Given {{for foo in bar}}, returns TreeNode{bar}
 func (receiver *ForLoopParseNode) GetLoopInput() TreeNode {
-	// expects children to be {"for", "(", "foo", "in", "bar",...}
+	// expects children to be {"for", "foo", "in", "bar", "}}", content}
 	// where "bar" is the loop input
-	return receiver.children[4]
+	return receiver.children[3]
 }
 
-// GetLoopBodyNodes returns the children of receiver that are part of the body
-// The body is any child between the 'for(foo in "bar")' and the 'end'
-// i.e.
-// for(foo in 'bar')
-//		some body business
-//		more body business
-// end
-func (receiver *ForLoopParseNode) GetLoopBodyNodes() []TreeNode {
-	children := receiver.children
-	body := make([]TreeNode, len(children)-7)
-	copy(body, children[6:len(receiver.children)-1])
-
-	return body
+// GetLoopBody returns the ContentParseNode body of this loop
+// Given {{for foo in bar}} content, returns TreeNode{content}
+func (receiver *ForLoopParseNode) GetLoopBody() TreeNode {
+	return receiver.children[5]
 }

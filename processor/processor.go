@@ -102,22 +102,13 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		}
 
 		return StringResult(strings.Join(resultText, ""))
-	case *parser.MultiStatementParseNode:
-		statements := typedNode.GetStatements()
-		resultText := make([]string, len(statements))
-
-		for i, statement := range typedNode.GetStatements() {
-			result := receiver.processHeadNode(statement)
-			resultText[i] = result.String()
-		}
-		return StringResult(strings.Join(resultText, "\n"))
 	case *parser.ForLoopParseNode:
 		inputResult := receiver.processHeadNode(typedNode.GetLoopInput())
 		inputContexts := receiver.getLoopInputContexts(&inputResult)
-		loopBodyNodes := typedNode.GetLoopBodyNodes()
-		loopIdent := typedNode.GetLoopIdent()
+		loopBody := typedNode.GetLoopBody()
+		loopIdent := typedNode.GetLoopIdent().(*parser.IdentParseNode)
 
-		return receiver.generateLoopBody(loopBodyNodes, *loopIdent, inputContexts)
+		return receiver.generateLoopBody(loopBody, loopIdent, inputContexts)
 	case *parser.IfStatementParseNode:
 		ifCondition := receiver.processHeadNode(typedNode.GetIfConditional()).(BoolResult)
 		// check if first
@@ -244,19 +235,15 @@ func (receiver *NodeProcessor) callFunction(funcName string, args []Result) (Res
 	return receiver.FunctionModule.CallFunction(funcName, args...)
 }
 
-func (receiver *NodeProcessor) generateLoopBody(bodyNodes []parser.TreeNode, loopIdent parser.IdentParseNode, contexts []*Context) StringResult {
+func (receiver *NodeProcessor) generateLoopBody(body parser.TreeNode, loopIdent *parser.IdentParseNode, contexts []*Context) StringResult {
 	bodyText := ""
-
-	if len(bodyNodes) == 0 || len(contexts) == 0 {
-		return StringResult(bodyText)
-	}
 
 	context := receiver.Context
 	merged := &Context{}
 	for _, inputContext := range contexts {
 		(*merged)[loopIdent.Value] = &ContextNode{child: context.Merge(inputContext)}
 		loopProcessor := &NodeProcessor{Context: merged}
-		bodyText += loopProcessor.processHeadNode(bodyNodes[0]).String() + "\n"
+		bodyText += loopProcessor.processHeadNode(body).String()
 	}
 
 	return StringResult(bodyText)
