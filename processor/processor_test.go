@@ -977,6 +977,41 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 	}
 }
 
+func TestForLoopWithNormalBlockGeneratesEmptyBody(t *testing.T) {
+	condition := []lexer.Token{
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.InToken{},
+		lexer.StrToken{Str: "bar"},
+	}
+
+	body := []lexer.Token{
+		lexer.BlockToken{Block: "{{"},
+		lexer.IdentToken{Identifier: "foo"},
+		lexer.SymbolToken{Symbol: "."},
+		lexer.IdentToken{Identifier: "date"},
+		lexer.BlockToken{Block: "}}"},
+	}
+
+	expected := ""
+	pathReader := getTestPathReader(3)
+	exportStore := &ExportFileStore{FilePath: ""}
+	exportStore.Insert([]string{"date"}, StringResult("some-date-someday"))
+
+	for i := 0; i < len(pathReader("")); i++ {
+		expected += ""
+	}
+
+	forToks := generateForLoopTokens(condition, body)
+	head := generateTree(forToks)
+	resultChan := runProcessWithGetPathFunc(head, exportStore, pathReader)
+
+	result := <-resultChan
+
+	if result.String() != expected {
+		t.Errorf("expected for loop result to be %q, got %q", expected, result.String())
+	}
+}
+
 func TestContentReturnsCorrectResult(t *testing.T) {
 	head := &parser.ContentParseNode{}
 	next := &parser.ContentParseNode{}

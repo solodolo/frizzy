@@ -176,6 +176,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 
 		log.Fatalf("context lookup failed: %q", strings.Join(keys, "."))
 		return nil
+	case *parser.BlockParseNode:
+		content := typedNode.GetContent()
+		parsed := receiver.processHeadNode(content)
+
+		if typedNode.IsPrintable {
+			return StringResult(parsed.String() + "\n")
+		}
+
+		return StringResult("")
 	default:
 		return StringResult("")
 	}
