@@ -24,11 +24,11 @@ func getNodeChan(nodes []parser.TreeNode) chan parser.TreeNode {
 }
 
 func TestProcessStringNodeReturnsString(t *testing.T) {
-	head := generateStringTree("foo")
+	head := generatePrintTree([]lexer.Token{lexer.StrToken{Str: "foo"}})
 	resultChan := runProcess(head)
 	result := <-resultChan
-	if result.String() != "foo" {
-		t.Errorf("expected result to be \"foo\", got %s", result.String())
+	if result.String() != "foo\n" {
+		t.Errorf("expected result to be foo, got %s", result.String())
 	}
 }
 
@@ -43,8 +43,8 @@ func TestProcessNumNodeReturnsNumAsString(t *testing.T) {
 }
 
 func TestProcessBoolNodeReturnsBoolAsString(t *testing.T) {
-	trueHead := generateTree([]lexer.Token{lexer.BoolToken{Value: "true"}})
-	falseHead := generateTree([]lexer.Token{lexer.BoolToken{Value: "false"}})
+	trueHead := generatePrintTree([]lexer.Token{lexer.BoolToken{Value: "true"}})
+	falseHead := generatePrintTree([]lexer.Token{lexer.BoolToken{Value: "false"}})
 	trueResultChan := runProcess(trueHead)
 	falseResultChan := runProcess(falseHead)
 
@@ -61,7 +61,7 @@ func TestProcessBoolNodeReturnsBoolAsString(t *testing.T) {
 }
 
 func TestAddTwoNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NumToken{Num: "10"},
 		lexer.AddOpToken{},
 		lexer.NumToken{Num: "3"},
@@ -76,7 +76,7 @@ func TestAddTwoNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestAddOneNegativeNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "10"},
 		lexer.AddOpToken{},
@@ -92,7 +92,7 @@ func TestAddOneNegativeNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestSubtractTwoNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NumToken{Num: "10"},
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "3"},
@@ -107,7 +107,7 @@ func TestSubtractTwoNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestSubtractFromNegativeNumberReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "10"},
 		lexer.SubOpToken{},
@@ -123,7 +123,7 @@ func TestSubtractFromNegativeNumberReturnsCorrectResult(t *testing.T) {
 }
 
 func TestMultiplyTwoNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NumToken{Num: "99"},
 		lexer.MultOpToken{Operator: "*"},
 		lexer.NumToken{Num: "71"},
@@ -138,7 +138,7 @@ func TestMultiplyTwoNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestMultiplyPositiveNegativeNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NumToken{Num: "6"},
 		lexer.MultOpToken{Operator: "*"},
 		lexer.SubOpToken{},
@@ -154,7 +154,7 @@ func TestMultiplyPositiveNegativeNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestMultiplyNegativePositiveNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "6001"},
 		lexer.MultOpToken{Operator: "*"},
@@ -170,7 +170,7 @@ func TestMultiplyNegativePositiveNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestMultiplyTwoNegativeNumbersReturnsCorrectResult(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "13"},
 		lexer.MultOpToken{Operator: "*"},
@@ -187,7 +187,7 @@ func TestMultiplyTwoNegativeNumbersReturnsCorrectResult(t *testing.T) {
 }
 
 func TestNegationOfTrueBoolReturnsFalse(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NegationOpToken{Operator: "!"},
 		lexer.BoolToken{Value: "true"},
 	})
@@ -200,7 +200,7 @@ func TestNegationOfTrueBoolReturnsFalse(t *testing.T) {
 	}
 }
 func TestNegationOfFalseBoolReturnsTrue(t *testing.T) {
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.NegationOpToken{Operator: "!"},
 		lexer.BoolToken{Value: "false"},
 	})
@@ -223,7 +223,7 @@ func TestLTOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] < test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: "<"},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -247,7 +247,7 @@ func TestLTEOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] <= test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: "<="},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -272,7 +272,7 @@ func TestGTOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] > test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: ">"},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -297,7 +297,7 @@ func TestGTEOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] >= test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: ">="},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -322,7 +322,7 @@ func TestEqOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] == test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: "=="},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -347,7 +347,7 @@ func TestNotEqOfTwoNumbersReturnsCorrectResult(t *testing.T) {
 	for _, test := range nums {
 		expected := test[0] != test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.NumToken{Num: strconv.Itoa(test[0])},
 			lexer.RelOpToken{Operator: "!="},
 			lexer.NumToken{Num: strconv.Itoa(test[1])},
@@ -372,7 +372,7 @@ func TestLTOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] < test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: "<"},
 			lexer.StrToken{Str: test[1]},
@@ -397,7 +397,7 @@ func TestLTEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] <= test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: "<="},
 			lexer.StrToken{Str: test[1]},
@@ -422,7 +422,7 @@ func TestGTOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] > test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: ">"},
 			lexer.StrToken{Str: test[1]},
@@ -447,7 +447,7 @@ func TestGTEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] >= test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: ">="},
 			lexer.StrToken{Str: test[1]},
@@ -473,7 +473,7 @@ func TestEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] == test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: "=="},
 			lexer.StrToken{Str: test[1]},
@@ -498,7 +498,7 @@ func TestNotEqOfTwoStringsReturnsCorrectResult(t *testing.T) {
 	for _, test := range strs {
 		expected := test[0] != test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.StrToken{Str: test[0]},
 			lexer.RelOpToken{Operator: "!="},
 			lexer.StrToken{Str: test[1]},
@@ -524,7 +524,7 @@ func TestEqOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	for _, test := range bools {
 		expected := test[0] == test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
 			lexer.RelOpToken{Operator: "=="},
 			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
@@ -549,7 +549,7 @@ func TestNotEqOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	for _, test := range bools {
 		expected := test[0] != test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
 			lexer.RelOpToken{Operator: "!="},
 			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
@@ -574,7 +574,7 @@ func TestLogicalAndOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	for _, test := range bools {
 		expected := test[0] && test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
 			lexer.LogicOpToken{Operator: "&&"},
 			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
@@ -600,7 +600,7 @@ func TestLogicalOrOfTwoBoolsReturnsCorrectResult(t *testing.T) {
 	for _, test := range bools {
 		expected := test[0] || test[1]
 
-		head := generateTree([]lexer.Token{
+		head := generatePrintTree([]lexer.Token{
 			lexer.BoolToken{Value: strconv.FormatBool(test[0])},
 			lexer.LogicOpToken{Operator: "||"},
 			lexer.BoolToken{Value: strconv.FormatBool(test[1])},
@@ -629,7 +629,7 @@ func TestAssignmentAddsValueIntoStore(t *testing.T) {
 	}
 
 	for _, val := range vals {
-		head := generateTree(append(partial, val))
+		head := generateBlockTree(append(partial, val))
 		resultChan, exportStore := runProcessWithExportStore(head, "foo")
 
 		<-resultChan
@@ -644,7 +644,7 @@ func TestAssignmentAddsValueIntoStore(t *testing.T) {
 
 func TestProcessedVarNodeReturnsContextValue(t *testing.T) {
 	context := &Context{"foo": &ContextNode{result: StringResult("val")}}
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.IdentToken{Identifier: "foo"},
 	})
 
@@ -665,7 +665,7 @@ func TestProcessedVarNodeReturnsNestedContextValue(t *testing.T) {
 			}},
 		}},
 	}
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.IdentToken{Identifier: "foo"},
 		lexer.SymbolToken{Symbol: "."},
 		lexer.IdentToken{Identifier: "bar"},
@@ -692,7 +692,7 @@ func TestProcessedVarNodeReturnsContainerValue(t *testing.T) {
 		}},
 	}
 
-	head := generateTree([]lexer.Token{
+	head := generatePrintTree([]lexer.Token{
 		lexer.IdentToken{Identifier: "foo"},
 		lexer.SymbolToken{Symbol: "."},
 		lexer.IdentToken{Identifier: "bar"},
@@ -1086,14 +1086,11 @@ func TestForLoopGeneratesCorrectContextBody(t *testing.T) {
 }
 
 func TestPrintFuncCallReturnsValue(t *testing.T) {
-	expected := "1"
-	head := generateTree([]lexer.Token{
-		lexer.IdentToken{Identifier: "print"},
-		lexer.SymbolToken{Symbol: "("},
+	expected := "1\n"
+	head := generatePrintTree([]lexer.Token{
 		lexer.NumToken{Num: "6423"},
 		lexer.SubOpToken{},
 		lexer.NumToken{Num: "6422"},
-		lexer.SymbolToken{Symbol: ")"},
 	})
 
 	resultChan := runProcess(head)
@@ -1141,17 +1138,56 @@ func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, 
 	return resultChan
 }
 
-func generateStringTree(str string) parser.TreeNode {
-	tok := lexer.StrToken{Str: str}
-	return generateTree([]lexer.Token{tok})
+func generatePrintTree(tokens []lexer.Token) parser.TreeNode {
+	return generateBlockedTree(
+		tokens,
+		lexer.BlockToken{Block: "{{:"},
+		lexer.BlockToken{Block: "}}"},
+	)
+}
+
+func generateBlockTree(tokens []lexer.Token) parser.TreeNode {
+	return generateBlockedTree(
+		tokens,
+		lexer.BlockToken{Block: "{{"},
+		lexer.BlockToken{Block: "}}"},
+	)
+}
+
+func generateIfTree(tokens []lexer.Token) parser.TreeNode {
+	return generateBlockedTree(
+		tokens,
+		lexer.IfToken{},
+		lexer.EndToken{},
+	)
+}
+
+func generateElseIfTree(tokens []lexer.Token) parser.TreeNode {
+	return generateBlockedTree(
+		tokens,
+		lexer.ElseIfToken{},
+		lexer.EndToken{},
+	)
+}
+
+func generateElseTree(tokens []lexer.Token) parser.TreeNode {
+	return generateBlockedTree(
+		tokens,
+		lexer.ElseToken{},
+		lexer.EndToken{},
+	)
 }
 
 func generateNumTree(num int) parser.TreeNode {
 	tok := lexer.NumToken{Num: strconv.Itoa(num)}
-	return generateTree([]lexer.Token{tok})
+	return generateBlockedTree(
+		[]lexer.Token{tok},
+		lexer.BlockToken{Block: "{{:"},
+		lexer.BlockToken{Block: "}}"},
+	)
 }
 
-func generateTree(tok []lexer.Token) parser.TreeNode {
+func generateBlockedTree(tokens []lexer.Token, openBlock, closeBlock lexer.Token) parser.TreeNode {
 	tokChan := make(chan []lexer.Token)
 	nodeChan := make(chan parser.TreeNode)
 	errChan := make(chan error)
@@ -1159,10 +1195,29 @@ func generateTree(tok []lexer.Token) parser.TreeNode {
 	go parser.Parse(tokChan, nodeChan, errChan)
 	go func() {
 		defer close(tokChan)
-		// tokens := []lexer.Token{lexer.BlockToken{Block: "{{"}}
-		// tokens = append(tokens, tok...)
-		tok = append(tok, []lexer.Token{lexer.EOLToken{}}...)
-		tokChan <- tok
+
+		allTokens := []lexer.Token{openBlock}
+		allTokens = append(allTokens, tokens...)
+		allTokens = append(allTokens, closeBlock)
+		allTokens = append(allTokens, lexer.EOLToken{})
+
+		tokChan <- allTokens
+	}()
+
+	return <-nodeChan
+}
+
+func generateTree(tokens []lexer.Token) parser.TreeNode {
+	tokChan := make(chan []lexer.Token)
+	nodeChan := make(chan parser.TreeNode)
+	errChan := make(chan error)
+
+	go parser.Parse(tokChan, nodeChan, errChan)
+	go func() {
+		defer close(tokChan)
+		tokens = append(tokens, lexer.EOLToken{})
+
+		tokChan <- tokens
 	}()
 
 	return <-nodeChan
