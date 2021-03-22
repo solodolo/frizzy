@@ -220,10 +220,8 @@ func getNonTerminalNodeForReduction(reduction string) TreeNode {
 		return &ElseIfListParseNode{}
 	case "var_name":
 		return &VarNameParseNode{}
-	case "block":
-		return &BlockParseNode{IsPrintable: false}
-	case "print_block":
-		return &BlockParseNode{IsPrintable: true}
+	case "block", "print_block":
+		return &BlockParseNode{}
 	default:
 		return &NonTerminalParseNode{Value: reduction}
 	}
