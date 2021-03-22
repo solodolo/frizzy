@@ -30,23 +30,14 @@ func readAndParseTokens(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, pa
 		// Track how many tokens have been read
 		i := 0
 		for i < len(tokens) {
-			token := tokens[i]
-			// Passthrough tokens can just be sent on
-			if ptToken, ok := token.(lexer.PassthroughToken); ok {
-				node := &StringParseNode{Value: ptToken.GetValue()}
-				nodeChan <- node
-				i++
-			} else {
-				// Parse the rest of the tokens with full grammar
-				j, err := parseTokens(tokens[i:], stateStack, nodeStack, nodeChan)
+			j, err := parseTokens(tokens[i:], stateStack, nodeStack, nodeChan)
 
-				if err != nil {
-					parseErrChan <- err
-					return
-				}
-
-				i += j
+			if err != nil {
+				parseErrChan <- err
+				return
 			}
+
+			i += j
 		}
 	}
 
