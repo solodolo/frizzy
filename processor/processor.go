@@ -180,11 +180,12 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 		content := typedNode.GetContent()
 		parsed := receiver.processHeadNode(content)
 
-		if typedNode.IsPrintable {
-			return StringResult(parsed.String() + "\n")
+		result := ""
+		if typedNode.IsPrintable() {
+			result = parsed.String()
 		}
 
-		return StringResult("")
+		return StringResult(result)
 	default:
 		return StringResult("")
 	}
