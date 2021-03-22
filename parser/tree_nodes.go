@@ -78,27 +78,27 @@ func (node NonTerminalParseNode) String() string {
 
 // TODO: Remove these IsFoo() checks and create node types for each
 func (node NonTerminalParseNode) IsAssignment() bool {
-	return node.Value == "K" && len(node.children) > 1
+	return node.Value == "expression" && len(node.children) > 1
 }
 
 func (node NonTerminalParseNode) IsAddition() bool {
-	return node.Value == "N" && len(node.children) > 1
+	return node.Value == "add_expression" && len(node.children) > 1
 }
 
 func (node NonTerminalParseNode) IsMultiplication() bool {
-	return node.Value == "O" && len(node.children) > 1
+	return node.Value == "mult_expression" && len(node.children) > 1
 }
 
 func (node NonTerminalParseNode) IsLogic() bool {
-	return node.Value == "M" && len(node.children) > 1
+	return node.Value == "logic_expression" && len(node.children) > 1
 }
 
 func (node NonTerminalParseNode) IsRelation() bool {
-	return node.Value == "U" && len(node.children) > 1
+	return node.Value == "rel_expression" && len(node.children) > 1
 }
 
 func (node NonTerminalParseNode) IsUnary() bool {
-	return node.Value == "L" && len(node.children) > 1
+	return node.Value == "unary_expression" && len(node.children) > 1
 }
 
 type StringParseNode struct {
