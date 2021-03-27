@@ -50,8 +50,6 @@ func TestNestedNodeReturnsCorrectNumberAndValueVarNameParts(t *testing.T) {
 		},
 	}
 
-	node.PrintTree()
-
 	nameParts := node.GetVarNameParts()
 
 	if len(nameParts) != 3 {
