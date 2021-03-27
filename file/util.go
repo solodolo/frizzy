@@ -25,7 +25,7 @@ func GetContentPaths(subpath string) []string {
 		}
 
 		if info.IsDir() {
-			return filepath.SkipDir
+			return nil
 		}
 
 		contentDirs = append(contentDirs, path)
