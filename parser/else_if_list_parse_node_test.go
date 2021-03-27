@@ -13,9 +13,9 @@ func getNodeWithBlockChildren(count int) *ElseIfListParseNode {
 		children := []TreeNode{
 			next,
 			&IdentParseNode{Value: "else_if"},
-			&StringParseNode{Value: "("},
-			&NonTerminalParseNode{Value: "K"},
-			&StringParseNode{Value: ")"},
+			&NonTerminalParseNode{Value: "expression"},
+			&StringParseNode{Value: "}}"},
+			&StringParseNode{Value: ""},
 		}
 		current.SetChildren(children)
 		current = next
@@ -23,9 +23,9 @@ func getNodeWithBlockChildren(count int) *ElseIfListParseNode {
 
 	children := []TreeNode{
 		&IdentParseNode{Value: "else_if"},
-		&StringParseNode{Value: "("},
-		&NonTerminalParseNode{Value: "K"},
-		&StringParseNode{Value: ")"},
+		&NonTerminalParseNode{Value: "expression"},
+		&StringParseNode{Value: "}}"},
+		&StringParseNode{Value: ""},
 	}
 
 	current.SetChildren(children)
@@ -41,9 +41,9 @@ func getNodeWithoutBlockChildren(count int) *ElseIfListParseNode {
 		next := &IdentParseNode{Value: "else_if"}
 		children := []TreeNode{
 			next,
-			&StringParseNode{Value: "("},
-			&NonTerminalParseNode{Value: "K"},
-			&StringParseNode{Value: ")"},
+			&NonTerminalParseNode{Value: "expression"},
+			&StringParseNode{Value: "}}"},
+			&StringParseNode{Value: ""},
 		}
 		current.SetChildren(children)
 		current = next
@@ -73,8 +73,8 @@ func TestGetConditionalWithBlockChildrenReturnsCorrectNode(t *testing.T) {
 
 	if !ok {
 		t.Errorf("expected conditional to be NonTerminalParseNode, got %T", conditional)
-	} else if typedConditional.Value != "K" {
-		t.Errorf("expected conditional to have value 'K', found %q", typedConditional.Value)
+	} else if typedConditional.Value != "expression" {
+		t.Errorf("expected conditional to have value 'expression', found %q", typedConditional.Value)
 	}
 }
 
@@ -85,8 +85,8 @@ func TestGetConditionalWithoutBlockChildrenReturnsCorrectNode(t *testing.T) {
 
 	if !ok {
 		t.Errorf("expected conditional to be NonTerminalParseNode, got %T", conditional)
-	} else if typedConditional.Value != "K" {
-		t.Errorf("expected conditional to have value 'K', found %q", typedConditional.Value)
+	} else if typedConditional.Value != "expression" {
+		t.Errorf("expected conditional to have value 'expression', found %q", typedConditional.Value)
 	}
 }
 
@@ -99,8 +99,8 @@ func TestGetConditionalsWithBlockChildrenReturnsAllConditionals(t *testing.T) {
 		t.Errorf("expected %d conditionals, got %d", numChildren+1, len(conditionals))
 	} else {
 		for _, conditional := range conditionals {
-			if typedConditional, ok := conditional.(*NonTerminalParseNode); !ok || typedConditional.Value != "K" {
-				t.Errorf("expected NonTerminalParseNode with value K, got %T", conditional)
+			if typedConditional, ok := conditional.(*NonTerminalParseNode); !ok || typedConditional.Value != "expression" {
+				t.Errorf("expected NonTerminalParseNode with value expression, got %T", conditional)
 			}
 		}
 	}
@@ -115,8 +115,8 @@ func TestGetConditionalsWithoutBlockChildrenReturnsAllConditionals(t *testing.T)
 		t.Errorf("expected %d conditionals, got %d", expected, len(conditionals))
 	} else {
 		typedConditional := conditionals[0].(*NonTerminalParseNode)
-		if typedConditional.Value != "K" {
-			t.Errorf("expected NonTerminalParseNode with value K, got %T", conditionals[0])
+		if typedConditional.Value != "expression" {
+			t.Errorf("expected NonTerminalParseNode with value expression, got %T", conditionals[0])
 		}
 	}
 }
