@@ -2,6 +2,8 @@ package processor
 
 import (
 	"sync"
+
+	"mettlach.codes/frizzy/file"
 )
 
 // Files can export variables for use by other files
@@ -13,32 +15,51 @@ type ExportStorage interface {
 	Insert([]string, Result)
 	GetContext() *Context
 	GetFileContext(string) *Context
+	GetNamespace() string
 }
 
 // ExportFileStore is a wrapper around ExportStore for a
 // specific file
 type ExportFileStore struct {
-	FilePath string
+	Filepath string
+}
+
+func NewExportFileStore(filepath string) *ExportFileStore {
+	store := &ExportFileStore{Filepath: filepath}
+	store.InsertSpecialValues()
+
+	return store
+}
+
+// InsertSpecialValues stores meta context values like a link to the file
+func (receiver *ExportFileStore) InsertSpecialValues() {
+	receiver.Insert([]string{"_href"},
+		StringResult(file.GetRelativePathTo(receiver.Filepath)))
 }
 
 // Insert inserts the key, value pair of the export context
-// represented by filePath
+// represented by Filepath
 func (receiver *ExportFileStore) Insert(contextKeys []string, value Result) {
 	exportStore := GetExportStore()
-	exportStore.Insert(receiver.FilePath, contextKeys, value)
+	exportStore.Insert(receiver.Filepath, contextKeys, value)
 }
 
 // GetContext returns the export context associated with this
-// ExportFileStore filePath
+// ExportFileStore Filepath
 func (receiver *ExportFileStore) GetContext() *Context {
 	exportStore := GetExportStore()
-	return exportStore.Get(receiver.FilePath)
+	return exportStore.Get(receiver.Filepath)
 }
 
 // GetFileContext returns the context associated with the given filePath
 func (receiver *ExportFileStore) GetFileContext(filePath string) *Context {
 	exportStore := GetExportStore()
 	return exportStore.Get(filePath)
+}
+
+// GetNamespace returns the filepath for this store
+func (receiver *ExportFileStore) GetNamespace() string {
+	return receiver.Filepath
 }
 
 // ExportStore is a singleton to read and write export vars

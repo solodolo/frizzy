@@ -250,9 +250,10 @@ func (receiver *NodeProcessor) generateLoopBody(body parser.TreeNode, loopIdent 
 
 	context := receiver.Context
 	merged := &Context{}
+	exportStore := NewExportFileStore(receiver.ExportStore.GetNamespace())
 	for _, inputContext := range contexts {
 		(*merged)[loopIdent.Value] = &ContextNode{child: context.Merge(inputContext)}
-		loopProcessor := &NodeProcessor{Context: merged}
+		loopProcessor := &NodeProcessor{Context: merged, ExportStore: exportStore}
 		bodyText += loopProcessor.processHeadNode(body).String()
 	}
 
