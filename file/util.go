@@ -3,6 +3,7 @@ package file
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"mettlach.codes/frizzy/config"
 )
@@ -33,4 +34,9 @@ func GetContentPaths(subpath string) []string {
 	})
 
 	return contentDirs
+}
+
+func GetRelativePathTo(filepath string) string {
+	config := config.GetLoadedConfig()
+	return strings.TrimPrefix(filepath, config.RootPath)
 }
