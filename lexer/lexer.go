@@ -15,7 +15,7 @@ var (
 	logicOp              = regexp.MustCompile(`^(\|\||&&)`)
 	assignOp             = regexp.MustCompile(`^=`)
 	unaryOp              = regexp.MustCompile(`^!`)
-	identExp             = regexp.MustCompile(`^[a-zA-Z]+[a-zA-Z0-9_]*`)
+	identExp             = regexp.MustCompile(`^_?[a-zA-Z]+[a-zA-Z0-9_]*`)
 	strExp               = regexp.MustCompile(`^"[^"]*"`)
 	numExp               = regexp.MustCompile(`^[0-9]+`)
 	ifExp                = regexp.MustCompile(`^{{if`)
