@@ -35,46 +35,6 @@ func testParsesNoErrors(test struct {
 	}
 }
 
-func TestPassthroughTokensReturnCorrectNodeTypes(t *testing.T) {
-	tokChan := make(chan []lexer.Token)
-
-	go func() {
-		defer close(tokChan)
-		tokens := []lexer.Token{
-			lexer.PassthroughToken{},
-			lexer.PassthroughToken{},
-			lexer.PassthroughToken{},
-		}
-
-		tokChan <- tokens
-	}()
-
-	nodes := []TreeNode{}
-	nodeChan := make(chan TreeNode)
-	errChan := make(chan error)
-
-	go Parse(tokChan, nodeChan, errChan)
-	for node := range nodeChan {
-		nodes = append(nodes, node)
-	}
-
-	err := <-errChan
-
-	if err != nil {
-		t.Errorf("Expected no errors. Got %q.", err.Error())
-	}
-
-	expected := []TreeNode{
-		&StringParseNode{},
-		&StringParseNode{},
-		&StringParseNode{},
-	}
-
-	if equal, msg := nodeSlicesEqual(expected, nodes); !equal {
-		t.Error(msg)
-	}
-}
-
 func TestIfBlockParsesNoErrors(t *testing.T) {
 	var tests = []struct {
 		tokens [][]lexer.Token
@@ -832,7 +792,6 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 				lexer.EOLToken{},
 			}},
 			nodes: []TreeNode{
-				&StringParseNode{},
 				&NonTerminalParseNode{},
 			},
 		},
@@ -846,7 +805,6 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
-				&StringParseNode{},
 			},
 		},
 		{
@@ -863,9 +821,7 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 				lexer.EOLToken{},
 			}},
 			nodes: []TreeNode{
-				&StringParseNode{},
 				&NonTerminalParseNode{},
-				&StringParseNode{},
 				&NonTerminalParseNode{},
 			},
 		},
@@ -885,7 +841,6 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 			}},
 			nodes: []TreeNode{
 				&NonTerminalParseNode{},
-				&StringParseNode{},
 				&NonTerminalParseNode{},
 			},
 		},
@@ -1069,41 +1024,6 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 			t.Errorf("Expected error %q to include %q.", gotMsg, test.errMsg)
 		}
 	}
-}
-
-func TestNodeStructure(t *testing.T) {
-	tokens := [][]lexer.Token{{
-		lexer.IfToken{},
-		lexer.BoolToken{Value: "true"},
-		lexer.BlockToken{Block: "}}"},
-		lexer.PassthroughToken{Value: "passthrough"},
-		lexer.BlockToken{Block: "{{"},
-		lexer.StrToken{Str: "foobar"},
-		lexer.BlockToken{Block: "}}"},
-		lexer.ElseIfToken{},
-		lexer.BoolToken{Value: "false"},
-		lexer.BlockToken{Block: "}}"},
-		lexer.PassthroughToken{Value: "passthrough again"},
-		lexer.EndToken{},
-		lexer.EOLToken{},
-	}}
-
-	tokChan := getTokChan(tokens)
-	nodeChan := make(chan TreeNode)
-	errChan := make(chan error)
-
-	go Parse(tokChan, nodeChan, errChan)
-
-	for node := range nodeChan {
-		node.PrintTree()
-	}
-
-	err := <-errChan
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
 }
 
 func getTokChan(tokens [][]lexer.Token) chan []lexer.Token {
