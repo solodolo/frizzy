@@ -963,7 +963,7 @@ func TestForLoopGeneratesCorrectFileContextualBody(t *testing.T) {
 
 	expected := ""
 	pathReader := getTestPathReader(3)
-	exportStore := &ExportFileStore{FilePath: ""}
+	exportStore := &ExportFileStore{Filepath: ""}
 	exportStore.Insert([]string{"date"}, StringResult("some-date-someday\n"))
 
 	for i := 0; i < len(pathReader("")); i++ {
@@ -998,7 +998,7 @@ func TestForLoopWithNormalBlockGeneratesEmptyBody(t *testing.T) {
 
 	expected := ""
 	pathReader := getTestPathReader(3)
-	exportStore := &ExportFileStore{FilePath: ""}
+	exportStore := &ExportFileStore{Filepath: ""}
 	exportStore.Insert([]string{"date"}, StringResult("some-date-someday"))
 
 	for i := 0; i < len(pathReader("")); i++ {
