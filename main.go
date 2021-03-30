@@ -16,8 +16,8 @@ func main() {
 	if config, err := config.LoadConfig("/home/dmmettlach/workspace/frizzy/config.json"); err != nil {
 		log.Fatal(fmt.Errorf("error loading config: %s", err))
 	} else {
-		processContent(config.ContentPath)
-		processContent(config.RootPath)
+		processContent(config.GetContentPath())
+		processContent(config.GetPagesPath())
 
 		fmt.Println("Done")
 	}
@@ -25,7 +25,6 @@ func main() {
 
 func processContent(path string) {
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		fmt.Println("path: " + path)
 		if err != nil {
 			log.Fatalf("error walking dir: %s", err)
 		}
