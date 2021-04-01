@@ -260,6 +260,9 @@ func (receiver *NodeProcessor) generateLoopBody(body parser.TreeNode, loopIdent 
 	return StringResult(bodyText)
 }
 
+// getPaths is responsible for looking up the path of each file in a loop
+// or any other situation when multiple files are referenced from the current
+// file being processed
 // getPaths reads paths using the provided PathReader or defaulting to
 // file.GetContentPaths if PathReader is nil
 func (receiver *NodeProcessor) getPaths(subpath string) []string {
