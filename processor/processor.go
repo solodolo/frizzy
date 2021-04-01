@@ -17,6 +17,7 @@ type NodeProcessor struct {
 	PathReader     file.GetPathFunc
 	ExportStore    ExportStorage
 	FunctionModule FunctionModule
+	PostProcessor  PostProcessable
 }
 
 // Process reads each node from nodeChan and walks through its tree
@@ -25,7 +26,12 @@ func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, resultCh
 	defer close(resultChan)
 
 	for node := range nodeChan {
-		resultChan <- receiver.processHeadNode(node)
+		result := receiver.processHeadNode(node)
+		if receiver.PostProcessor != nil {
+			result = receiver.PostProcessor.Call(result)
+		}
+
+		resultChan <- result
 	}
 }
 

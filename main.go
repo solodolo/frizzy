@@ -47,9 +47,12 @@ func renderFile(contentFile *os.File) {
 	nodeChan := make(chan parser.TreeNode)
 	parserErrChan := make(chan error)
 	exportStore := processor.NewExportFileStore(contentFile.Name())
+	postProcessor := &processor.MarkdownPostProcessor{Filepath: contentFile.Name()}
+
 	nodeProcessor := processor.NodeProcessor{
-		Context:     &processor.Context{},
-		ExportStore: exportStore,
+		Context:       &processor.Context{},
+		ExportStore:   exportStore,
+		PostProcessor: postProcessor,
 	}
 
 	resultChan := make(chan processor.Result)
