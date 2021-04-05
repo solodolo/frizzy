@@ -64,7 +64,7 @@ func Paginate(contentPaths []string, templatePath string, numPerPage int) Result
 			}
 		}(nodeChan, templateNodes)
 
-		processor := NodeProcessor{Context: paginationContext}
+		processor := NewNodeProcessor(templatePath, paginationContext, nil, nil)
 		go processor.Process(nodeChan, resultChan)
 	}
 	return <-resultChan

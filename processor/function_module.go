@@ -27,8 +27,8 @@ func (receiver *BuiltinFunctionModule) CallFunction(funcName string, funcArgs ..
 
 // NewBuiltinFunctionModule creates a BuiltinFunctionModule object
 // populated with a mapping for each of the builtin functions
-func NewBuiltinFunctionModule() BuiltinFunctionModule {
-	module := BuiltinFunctionModule{}
+func NewBuiltinFunctionModule() *BuiltinFunctionModule {
+	module := &BuiltinFunctionModule{}
 	module.registerFunc("print", PrintRaw)
 	module.registerFunc("paginate", PaginateRaw)
 
