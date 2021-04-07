@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
@@ -21,6 +22,10 @@ func main() {
 		processContent(config.GetContentPath(), outputPath)
 		processContent(config.GetPagesPath(), outputPath)
 
+		fmt.Println("starting development server...")
+		server := file.DevServer{ServerRoot: outputPath, Port: 8080}
+		server.ListenAndServe()
+
 		fmt.Println("Done")
 	}
 }
@@ -29,7 +34,6 @@ func createOutputDirs(outputPath string) {
 	if err := os.MkdirAll(outputPath, 0750); err != nil {
 		log.Fatalf("error creating output dir %q: %s\n", outputPath, err)
 	}
-
 }
 
 func processContent(inputPath, outputPath string) {
@@ -83,6 +87,10 @@ func renderFile(contentFile *os.File, outputPath string) {
 func renderHTMLResult(result processor.Result, inputPath, outputPath string) {
 	relativeInputPath := file.GetRelativePathTo(inputPath)
 	fullPath := filepath.Join(outputPath, relativeInputPath)
+
+	if !strings.HasSuffix(fullPath, ".html") {
+		fullPath = strings.TrimSuffix(fullPath, filepath.Ext(fullPath)) + ".html"
+	}
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0750); err != nil {
 		log.Fatalf("could not create output dir %q: %s\n", filepath.Dir(fullPath), err)
