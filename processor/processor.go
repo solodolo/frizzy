@@ -209,8 +209,8 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) Result {
 			return ContainerResult{node.child}
 		}
 
-		log.Fatalf("context lookup failed: %q", strings.Join(keys, "."))
-		return nil
+		log.Printf("context lookup failed: %q", strings.Join(keys, "."))
+		return StringResult("")
 	case *parser.BlockParseNode:
 		content := typedNode.GetContent()
 		parsed := receiver.processHeadNode(content)
