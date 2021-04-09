@@ -1,9 +1,14 @@
 package processor
 
 import (
+	"io"
+	"log"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 
+	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
 	"mettlach.codes/frizzy/parser"
 )
@@ -41,6 +46,20 @@ func PaginateRaw(args ...Result) Result {
 
 	contentPaths := file.GetContentPaths(filePathString)
 	return Paginate(contentPaths, templatePathString, numPerPageInt)
+}
+
+func TemplateRaw(args ...Result) Result {
+	var ret Result
+
+	if len(args) != 1 {
+		log.Printf("`template` expects one argument, got %d", len(args))
+	} else if templatePath, ok := args[0].(StringResult); !ok {
+		log.Printf("invalid template argument %s\n", args[0])
+	} else {
+		ret = Template(string(templatePath))
+	}
+
+	return ret
 }
 
 // Print takes a result and returns the string version of it
@@ -107,6 +126,23 @@ func buildPaginationContexts(contentPaths []string, numPerPage int) []*Context {
 	}
 
 	return ret
+}
+
+func Template(templatePath string) Result {
+	config := config.GetLoadedConfig()
+	fullPath := filepath.Join(config.GetTemplatePath(), templatePath)
+
+	if f, err := os.Open(fullPath); err != nil {
+		log.Printf("could not open template file %s\n", fullPath)
+	} else {
+		if bytes, err := io.ReadAll(f); err != nil {
+			log.Printf("could not read template file %s\n", fullPath)
+		} else {
+			return StringResult(bytes)
+		}
+	}
+
+	return StringResult("")
 }
 
 func minInt(a, b int) int {

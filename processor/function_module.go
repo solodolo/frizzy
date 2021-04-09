@@ -31,6 +31,7 @@ func NewBuiltinFunctionModule() *BuiltinFunctionModule {
 	module := &BuiltinFunctionModule{}
 	module.registerFunc("print", PrintRaw)
 	module.registerFunc("paginate", PaginateRaw)
+	module.registerFunc("template", TemplateRaw)
 
 	return module
 }
