@@ -10,17 +10,19 @@ import (
 )
 
 const (
-	DefaultContentDir string = "content"
-	DefaultPagesDir   string = "pages"
+	DefaultContentDir  string = "content"
+	DefaultPagesDir    string = "pages"
+	DefaultTemplateDir string = "templates"
 )
 
 // Config holds the configuration options for the
 // frizzy project
 type Config struct {
-	RootPath   string
-	ContentDir string
-	PagesDir   string
-	OutputPath string
+	RootPath    string
+	ContentDir  string
+	PagesDir    string
+	OutputPath  string
+	TemplateDir string
 }
 
 var loadedConfig *Config
@@ -60,6 +62,10 @@ func (receiver *Config) GetPagesPath() string {
 	return filepath.Join(receiver.RootPath, receiver.PagesDir)
 }
 
+func (receiver *Config) GetTemplatePath() string {
+	return filepath.Join(receiver.RootPath, receiver.TemplateDir)
+}
+
 func loadConfigObject(configStream io.Reader) (*Config, error) {
 	dec := json.NewDecoder(configStream)
 
@@ -76,6 +82,10 @@ func loadConfigObject(configStream io.Reader) (*Config, error) {
 
 	if c.PagesDir == "" {
 		c.PagesDir = DefaultPagesDir
+	}
+
+	if c.TemplateDir == "" {
+		c.TemplateDir = DefaultTemplateDir
 	}
 
 	return c, nil
