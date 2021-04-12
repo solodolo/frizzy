@@ -74,7 +74,8 @@ func Paginate(contentPaths []string, templatePath string, numPerPage int) Result
 
 	templateCache := parser.GetTemplateCache()
 	templateNodes := templateCache.Get(templatePath)
-	resultChan := make(chan Result)
+
+	result := ""
 	for _, paginationContext := range paginationContexts {
 		nodeChan := make(chan parser.TreeNode)
 		go func(nodeChan chan parser.TreeNode, templateNodes *[]parser.TreeNode) {
@@ -84,9 +85,10 @@ func Paginate(contentPaths []string, templatePath string, numPerPage int) Result
 		}(nodeChan, templateNodes)
 
 		processor := NewNodeProcessor(templatePath, paginationContext, nil, nil)
-		go processor.Process(nodeChan, resultChan)
+		resultChan := processor.Process(nodeChan)
+		result += (<-resultChan).String()
 	}
-	return <-resultChan
+	return StringResult(result)
 }
 
 func buildPaginationContexts(contentPaths []string, numPerPage int) []*Context {

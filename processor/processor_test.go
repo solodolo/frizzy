@@ -1105,39 +1105,37 @@ func TestPrintFuncCallReturnsValue(t *testing.T) {
 	}
 }
 
-func runProcess(head parser.TreeNode) chan Result {
+func runProcess(head parser.TreeNode) <-chan Result {
 	return runProcessWithContext(head, nil)
 }
 
-func runProcessWithExportStore(head parser.TreeNode, filename string) (chan Result, ExportStorage) {
+func runProcessWithExportStore(head parser.TreeNode, filename string) (<-chan Result, ExportStorage) {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 	exportStorage := &ExportFileStore{filename}
 
 	context := &Context{}
 	processor := &NodeProcessor{Context: context, ExportStore: exportStorage}
-	resultChan := make(chan Result)
-	go processor.Process(nodeChan, resultChan)
+	resultChan := processor.Process(nodeChan)
 
 	return resultChan, exportStorage
 }
 
-func runProcessWithContext(head parser.TreeNode, context *Context) chan Result {
+func runProcessWithContext(head parser.TreeNode, context *Context) <-chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
-	resultChan := make(chan Result)
 
 	processor := NodeProcessor{Context: context}
-	go processor.Process(nodeChan, resultChan)
+	resultChan := processor.Process(nodeChan)
 
 	return resultChan
 }
 
-func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, getPathFunc func(string) []string) chan Result {
+func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, getPathFunc func(string) []string) <-chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
-	resultChan := make(chan Result)
 
 	processor := NodeProcessor{Context: &Context{}, ExportStore: exportStore}
 	processor.PathReader = getPathFunc
-	go processor.Process(nodeChan, resultChan)
+
+	resultChan := processor.Process(nodeChan)
 
 	return resultChan
 }
@@ -1201,10 +1199,8 @@ func generateNumTree(num int) parser.TreeNode {
 
 func generateBlockedTree(tokens []lexer.Token, openBlock, closeBlock lexer.Token) parser.TreeNode {
 	tokChan := make(chan []lexer.Token)
-	nodeChan := make(chan parser.TreeNode)
-	errChan := make(chan error)
 
-	go parser.Parse(tokChan, nodeChan, errChan)
+	nodeChan, _ := parser.Parse(tokChan)
 	go func() {
 		defer close(tokChan)
 
@@ -1221,10 +1217,8 @@ func generateBlockedTree(tokens []lexer.Token, openBlock, closeBlock lexer.Token
 
 func generateTree(tokens []lexer.Token) parser.TreeNode {
 	tokChan := make(chan []lexer.Token)
-	nodeChan := make(chan parser.TreeNode)
-	errChan := make(chan error)
 
-	go parser.Parse(tokChan, nodeChan, errChan)
+	nodeChan, _ := parser.Parse(tokChan)
 	go func() {
 		defer close(tokChan)
 		tokens = append(tokens, lexer.EOLToken{})
