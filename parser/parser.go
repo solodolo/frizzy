@@ -9,13 +9,12 @@ import (
 
 // Parse reads tokens from tokChan and parses them into tree nodes
 // which are then fed to nodeChan
-func Parse(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, errChan chan error) {
-	defer close(errChan)
+func Parse(tokChan <-chan []lexer.Token) (<-chan TreeNode, <-chan error) {
+	nodeChan := make(chan TreeNode)
+	errChan := make(chan error, 1)
 
-	parseErrChan := make(chan error)
-	go readAndParseTokens(tokChan, nodeChan, parseErrChan)
-	// TODO: This doesn't look right
-	errChan <- <-parseErrChan
+	go readAndParseTokens(tokChan, nodeChan, errChan)
+	return nodeChan, errChan
 }
 
 // Read lines of tokens from tokChan and turn them into TreeNodes sent to nodeChan

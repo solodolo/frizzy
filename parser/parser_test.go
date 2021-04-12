@@ -14,10 +14,8 @@ func testParsesNoErrors(test struct {
 	nodes  []TreeNode
 }, t *testing.T) {
 	tokChan := getTokChan(test.tokens)
-	nodeChan := make(chan TreeNode)
-	errChan := make(chan error)
 
-	go Parse(tokChan, nodeChan, errChan)
+	nodeChan, errChan := Parse(tokChan)
 
 	nodes := []TreeNode{}
 	for node := range nodeChan {
@@ -660,6 +658,21 @@ func TestBlockParsesNoErrors(t *testing.T) {
 		},
 		{
 			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{:"},
+				lexer.IdentToken{Identifier: "Template"},
+				lexer.SymbolToken{Symbol: "("},
+				lexer.StrToken{Str: "foo"},
+				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.PassthroughToken{Value: "blah"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
 				lexer.BlockToken{Block: "{{"},
 				lexer.IdentToken{Identifier: "print"},
 				lexer.SymbolToken{Symbol: "("},
@@ -756,10 +769,8 @@ func TestBlockParsesNoErrors(t *testing.T) {
 
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
-		nodeChan := make(chan TreeNode)
-		errChan := make(chan error)
 
-		go Parse(tokChan, nodeChan, errChan)
+		nodeChan, errChan := Parse(tokChan)
 
 		nodes := []TreeNode{}
 		for node := range nodeChan {
@@ -880,10 +891,8 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
-		nodeChan := make(chan TreeNode)
-		errChan := make(chan error)
 
-		go Parse(tokChan, nodeChan, errChan)
+		nodeChan, errChan := Parse(tokChan)
 
 		nodes := []TreeNode{}
 		for node := range nodeChan {
@@ -1008,9 +1017,8 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
-		nodeChan := make(chan TreeNode)
-		errChan := make(chan error)
-		go Parse(tokChan, nodeChan, errChan)
+		nodeChan, errChan := Parse(tokChan)
+
 		<-nodeChan
 
 		err := <-errChan
