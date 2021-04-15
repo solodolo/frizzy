@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"regexp"
@@ -55,16 +56,16 @@ type Lexer struct {
 	state    LexerState
 }
 
-func (receiver *Lexer) Lex(inputReader io.Reader) (<-chan []Token, <-chan error) {
+func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan []Token, <-chan error) {
 	inputBuffer := bufio.NewScanner(inputReader)
 	inputBuffer.Split(splitLinesKeepNL)
 
-	lineChan, lineErrChan := readLines(inputBuffer)
+	lineChan, lineErrChan := readLines(inputBuffer, ctx)
 
 	receiver.lineChan = lineChan
 	receiver.state = passthrough
 
-	tokChan, tokErrChan := receiver.processLines()
+	tokChan, tokErrChan := receiver.processLines(ctx)
 	lexerErrChan := make(chan error, 1)
 
 	go func() {
@@ -90,7 +91,7 @@ func splitLinesKeepNL(data []byte, atEOF bool) (advance int, token []byte, err e
 	return
 }
 
-func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
+func readLines(inputBuffer *bufio.Scanner, ctx context.Context) (<-chan InputLine, <-chan error) {
 	lineChan := make(chan InputLine)
 	errChan := make(chan error, 1)
 
@@ -101,7 +102,11 @@ func readLines(inputBuffer *bufio.Scanner) (<-chan InputLine, <-chan error) {
 		i := 1
 		for inputBuffer.Scan() {
 			line := inputBuffer.Text()
-			lineChan <- InputLine{line: line, lineNum: i}
+			select {
+			case lineChan <- InputLine{line: line, lineNum: i}:
+			case <-ctx.Done():
+				return
+			}
 			i++
 		}
 
@@ -125,7 +130,7 @@ func (receiver *Lexer) getLineToProcess(remaining InputLine) (InputLine, bool) {
 	return remaining, true
 }
 
-func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
+func (receiver *Lexer) processLines(ctx context.Context) (<-chan []Token, <-chan error) {
 	tokChan := make(chan []Token)
 	errChan := make(chan error, 1)
 
@@ -143,7 +148,11 @@ func (receiver *Lexer) processLines() (<-chan []Token, <-chan error) {
 				inputLine = remaining
 			} else if receiver.state == inBlock {
 				toks, remaining := receiver.processTokensInBlock(inputLine)
-				tokChan <- toks
+				select {
+				case tokChan <- toks:
+				case <-ctx.Done():
+					return
+				}
 				inputLine = remaining
 			}
 

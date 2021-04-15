@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -84,7 +85,7 @@ func TestProcessLineReturnsCorrectTokens(t *testing.T) {
 			lineChan <- InputLine{line: test.line}
 		}(lineChan)
 
-		tokChan, errChan := lexer.processLines()
+		tokChan, errChan := lexer.processLines(context.Background())
 
 		tokens := []Token{}
 
@@ -107,7 +108,7 @@ func TestLexHandlesReadFailure(t *testing.T) {
 	pipeReader.Close()
 	lexer := Lexer{}
 
-	tokChan, errChan := lexer.Lex(pipeReader)
+	tokChan, errChan := lexer.Lex(pipeReader, context.Background())
 	expected := "lexer read error line 1: io: read/write on closed pipe"
 
 	<-tokChan
@@ -238,7 +239,7 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 		got := []Token{}
 		lexer := Lexer{}
 
-		tokChan, errChan := lexer.Lex(reader)
+		tokChan, errChan := lexer.Lex(reader, context.Background())
 
 		for tokens := range tokChan {
 			got = append(got, tokens...)
@@ -279,7 +280,7 @@ func TestTokensAreAssignedCorrectLineNum(t *testing.T) {
 		reader := strings.NewReader(test.lines)
 		lexer := Lexer{}
 
-		tokChan, _ := lexer.Lex(reader)
+		tokChan, _ := lexer.Lex(reader, context.Background())
 
 		got := []Token{}
 		for tokens := range tokChan {
