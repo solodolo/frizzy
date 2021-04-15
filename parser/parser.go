@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -9,16 +10,16 @@ import (
 
 // Parse reads tokens from tokChan and parses them into tree nodes
 // which are then fed to nodeChan
-func Parse(tokChan <-chan []lexer.Token) (<-chan TreeNode, <-chan error) {
+func Parse(tokChan <-chan []lexer.Token, ctx context.Context) (<-chan TreeNode, <-chan error) {
 	nodeChan := make(chan TreeNode)
 	errChan := make(chan error, 1)
 
-	go readAndParseTokens(tokChan, nodeChan, errChan)
+	go readAndParseTokens(ctx, tokChan, nodeChan, errChan)
 	return nodeChan, errChan
 }
 
 // Read lines of tokens from tokChan and turn them into TreeNodes sent to nodeChan
-func readAndParseTokens(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, parseErrChan chan error) {
+func readAndParseTokens(ctx context.Context, tokChan <-chan []lexer.Token, nodeChan chan TreeNode, parseErrChan chan error) {
 	defer close(nodeChan)
 	defer close(parseErrChan)
 
@@ -29,11 +30,19 @@ func readAndParseTokens(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, pa
 		// Track how many tokens have been read
 		i := 0
 		for i < len(tokens) {
-			j, err := parseTokens(tokens[i:], stateStack, nodeStack, nodeChan)
+			j, head, err := parseTokens(tokens[i:], stateStack, nodeStack)
 
 			if err != nil {
 				parseErrChan <- err
 				return
+			}
+
+			if head != nil {
+				select {
+				case nodeChan <- head:
+				case <-ctx.Done():
+					return
+				}
 			}
 
 			i += j
@@ -43,7 +52,7 @@ func readAndParseTokens(tokChan <-chan []lexer.Token, nodeChan chan TreeNode, pa
 	parseErrChan <- nil
 }
 
-func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode, nodeChan chan TreeNode) (i int, err error) {
+func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode) (i int, head TreeNode, err error) {
 	if len(*stateStack) == 0 {
 		*stateStack = append(*stateStack, 0)
 	}
@@ -81,16 +90,14 @@ func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode,
 			}
 		} else {
 			// Accept is the only remaining option
-			head := &NonTerminalParseNode{}
-			head.children = *nodeStack
-
-			// Send head to channel
-			nodeChan <- head
+			head = &NonTerminalParseNode{}
+			head.SetChildren(*nodeStack)
 
 			// Clear stacks
 			*stateStack = []int{}
 			*nodeStack = []TreeNode{}
 			i++
+
 			break
 		}
 	}

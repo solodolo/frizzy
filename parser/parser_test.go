@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -15,7 +16,7 @@ func testParsesNoErrors(test struct {
 }, t *testing.T) {
 	tokChan := getTokChan(test.tokens)
 
-	nodeChan, errChan := Parse(tokChan)
+	nodeChan, errChan := Parse(tokChan, context.Background())
 
 	nodes := []TreeNode{}
 	for node := range nodeChan {
@@ -770,7 +771,7 @@ func TestBlockParsesNoErrors(t *testing.T) {
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
 
-		nodeChan, errChan := Parse(tokChan)
+		nodeChan, errChan := Parse(tokChan, context.Background())
 
 		nodes := []TreeNode{}
 		for node := range nodeChan {
@@ -892,7 +893,7 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
 
-		nodeChan, errChan := Parse(tokChan)
+		nodeChan, errChan := Parse(tokChan, context.Background())
 
 		nodes := []TreeNode{}
 		for node := range nodeChan {
@@ -1017,7 +1018,7 @@ func TestParserSendsErrorWithIncorrectToken(t *testing.T) {
 
 	for _, test := range tests {
 		tokChan := getTokChan(test.tokens)
-		nodeChan, errChan := Parse(tokChan)
+		nodeChan, errChan := Parse(tokChan, context.Background())
 
 		<-nodeChan
 
