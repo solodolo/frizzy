@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -93,13 +94,15 @@ func createOutputDirs(outputPath string) {
 }
 
 func renderFile(contentFile *os.File, outputPath string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil)
+	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil, nil)
 
 	lexer := lexer.Lexer{}
-	tokChan, lexErrChan := lexer.Lex(contentFile)
-	nodeChan, parserErrChan := parser.Parse(tokChan)
-	resultChan := nodeProcessor.Process(nodeChan)
+	tokChan, lexErrChan := lexer.Lex(contentFile, ctx)
+	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
+	resultChan := nodeProcessor.Process(nodeChan, ctx)
 
 	for result := range resultChan {
 		renderHTMLResult(result, contentFile.Name(), outputPath)

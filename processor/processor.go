@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -24,12 +25,13 @@ func NewNodeProcessor(
 	filepath string,
 	context *Context,
 	pathReader file.GetPathFunc,
+	exportStore ExportStorage,
 	funcModule FunctionModule,
 ) *NodeProcessor {
 	processor := &NodeProcessor{
 		Context:        context,
 		PathReader:     pathReader,
-		ExportStore:    NewExportFileStore(filepath),
+		ExportStore:    exportStore,
 		FunctionModule: funcModule,
 		PostProcessor:  &MarkdownPostProcessor{Filepath: filepath},
 	}
@@ -42,6 +44,10 @@ func NewNodeProcessor(
 		processor.PathReader = file.GetContentPaths
 	}
 
+	if exportStore == nil {
+		processor.ExportStore = NewExportFileStore(filepath)
+	}
+
 	if funcModule == nil {
 		processor.FunctionModule = NewBuiltinFunctionModule()
 	}
@@ -51,7 +57,7 @@ func NewNodeProcessor(
 
 // Process reads each node from nodeChan and walks through its tree
 // turning parse nodes into output
-func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode) <-chan Result {
+func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx context.Context) <-chan Result {
 	resultChan := make(chan Result)
 
 	go func() {
@@ -63,7 +69,11 @@ func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode) <-chan R
 				result = receiver.PostProcessor.Call(result)
 			}
 
-			resultChan <- result
+			select {
+			case resultChan <- result:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -290,7 +300,7 @@ func (receiver *NodeProcessor) generateLoopBody(body parser.TreeNode, loopIdent 
 
 	for _, inputContext := range contexts {
 		(*merged)[loopIdent.Value] = &ContextNode{child: context.Merge(inputContext)}
-		loopProcessor := NewNodeProcessor(namespace, merged, nil, nil)
+		loopProcessor := NewNodeProcessor(namespace, merged, nil, nil, nil)
 		bodyText += loopProcessor.processHeadNode(body).String()
 	}
 

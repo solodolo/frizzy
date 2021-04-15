@@ -1,6 +1,7 @@
 package processor
 
 import (
+	goContext "context"
 	"fmt"
 	"math"
 	"strconv"
@@ -916,6 +917,13 @@ func TestMultipleFalseElseIfReturnsElseBody(t *testing.T) {
 	}
 }
 
+type TestExportStore struct{}
+
+func (receiver *TestExportStore) Insert([]string, Result)        {}
+func (receiver *TestExportStore) GetContext() *Context           { return &Context{} }
+func (receiver *TestExportStore) GetFileContext(string) *Context { return &Context{} }
+func (receiver *TestExportStore) GetNamespace() string           { return "" }
+
 func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
 	bodyText := "this is the body\n"
 
@@ -937,7 +945,7 @@ func TestForLoopGeneratesCorrectNumberOfLines(t *testing.T) {
 
 	forToks := generateForLoopTokens(condition, body)
 	head := generateTree(forToks)
-	resultChan := runProcessWithGetPathFunc(head, nil, pathReader)
+	resultChan := runProcessWithGetPathFunc(head, &TestExportStore{}, pathReader)
 
 	result := <-resultChan
 
@@ -1114,8 +1122,8 @@ func runProcessWithExportStore(head parser.TreeNode, filename string) (<-chan Re
 	exportStorage := &ExportFileStore{filename}
 
 	context := &Context{}
-	processor := &NodeProcessor{Context: context, ExportStore: exportStorage}
-	resultChan := processor.Process(nodeChan)
+	processor := NewNodeProcessor(filename, context, nil, exportStorage, nil)
+	resultChan := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan, exportStorage
 }
@@ -1123,8 +1131,8 @@ func runProcessWithExportStore(head parser.TreeNode, filename string) (<-chan Re
 func runProcessWithContext(head parser.TreeNode, context *Context) <-chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 
-	processor := NodeProcessor{Context: context}
-	resultChan := processor.Process(nodeChan)
+	processor := NewNodeProcessor("", context, nil, nil, nil)
+	resultChan := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan
 }
@@ -1132,10 +1140,10 @@ func runProcessWithContext(head parser.TreeNode, context *Context) <-chan Result
 func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, getPathFunc func(string) []string) <-chan Result {
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 
-	processor := NodeProcessor{Context: &Context{}, ExportStore: exportStore}
+	processor := NewNodeProcessor("", &Context{}, getPathFunc, exportStore, nil)
 	processor.PathReader = getPathFunc
 
-	resultChan := processor.Process(nodeChan)
+	resultChan := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan
 }
@@ -1200,7 +1208,7 @@ func generateNumTree(num int) parser.TreeNode {
 func generateBlockedTree(tokens []lexer.Token, openBlock, closeBlock lexer.Token) parser.TreeNode {
 	tokChan := make(chan []lexer.Token)
 
-	nodeChan, _ := parser.Parse(tokChan)
+	nodeChan, _ := parser.Parse(tokChan, goContext.Background())
 	go func() {
 		defer close(tokChan)
 
@@ -1218,7 +1226,7 @@ func generateBlockedTree(tokens []lexer.Token, openBlock, closeBlock lexer.Token
 func generateTree(tokens []lexer.Token) parser.TreeNode {
 	tokChan := make(chan []lexer.Token)
 
-	nodeChan, _ := parser.Parse(tokChan)
+	nodeChan, _ := parser.Parse(tokChan, goContext.Background())
 	go func() {
 		defer close(tokChan)
 		tokens = append(tokens, lexer.EOLToken{})
