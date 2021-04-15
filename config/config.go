@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -48,7 +47,7 @@ func LoadConfig(configPath string) (*Config, error) {
 // by calling LoadConfig
 func GetLoadedConfig() *Config {
 	if loadedConfig == nil {
-		log.Fatal("configuration not loaded")
+		return &Config{}
 	}
 
 	return loadedConfig
