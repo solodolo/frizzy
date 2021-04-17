@@ -20,32 +20,34 @@ func main() {
 	if config, err := config.LoadConfig("/home/dmmettlach/workspace/frizzy/config.json"); err != nil {
 		log.Fatal(fmt.Errorf("error loading config: %s", err))
 	} else {
-		outputPath := config.OutputPath
-
-		const numConsumers = 1
-		wg := sync.WaitGroup{}
-
 		// have to process content first, then pages
-		paths := []string{config.GetContentPath(), config.GetPagesPath()}
-		for _, inputPath := range paths {
-			wg.Add(numConsumers)
-			pathChan, _ := walkFiles(inputPath)
-
-			for i := 0; i < numConsumers; i++ {
-				go func(index int) {
-					consumer(pathChan)
-					wg.Done()
-				}(i)
-			}
-
-			wg.Wait()
-		}
+		processFiles([]string{config.GetTemplatePath()}, templateCacher)
+		processFiles([]string{config.GetContentPath(), config.GetPagesPath()}, fileRenderer)
 
 		fmt.Println("starting development server...")
-		server := file.DevServer{ServerRoot: outputPath, Port: 8080}
+		server := file.DevServer{ServerRoot: config.OutputPath, Port: 8080}
 		server.ListenAndServe()
 
 		fmt.Println("Done")
+	}
+}
+
+func processFiles(filePaths []string, handler func(*os.File)) {
+	const numConsumers = 1
+	wg := sync.WaitGroup{}
+
+	for _, inputPath := range filePaths {
+		wg.Add(numConsumers)
+		pathChan, _ := walkFiles(inputPath)
+
+		for i := 0; i < numConsumers; i++ {
+			go func(index int) {
+				consumer(pathChan, handler)
+				wg.Done()
+			}(i)
+		}
+
+		wg.Wait()
 	}
 }
 
@@ -74,15 +76,13 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 	return pathChan, errChan
 }
 
-func consumer(pathChan <-chan string) {
-	config := config.GetLoadedConfig()
-
+func consumer(pathChan <-chan string, handler func(*os.File)) {
 	for path := range pathChan {
 		if file, err := os.Open(path); err != nil {
 			log.Fatalf("could not open file %s for processing\n", path)
 		} else {
 			fmt.Printf("processing %s\n", path)
-			renderFile(file, config.OutputPath)
+			handler(file)
 		}
 	}
 }
@@ -93,15 +93,50 @@ func createOutputDirs(outputPath string) {
 	}
 }
 
-func renderFile(contentFile *os.File, outputPath string) {
+func templateCacher(templateFile *os.File) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil, nil)
+	lexer := lexer.Lexer{}
+	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
+	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
+
+	config := config.GetLoadedConfig()
+	templatePath := config.GetTemplatePath()
+	cacheKey := strings.TrimPrefix(templateFile.Name(), templatePath)
+	if cacheKey[0] == '/' {
+		cacheKey = cacheKey[1:]
+	}
+
+	templateCache := parser.GetTemplateCache()
+	for node := range nodeChan {
+		templateCache.Insert(cacheKey, node)
+	}
+
+	tokErr := <-lexErrChan
+	if tokErr != nil {
+		log.Printf("lexer error: %s", tokErr)
+		return
+	}
+	parseErr := <-parserErrChan
+	if parseErr != nil {
+		log.Printf("parser error: %s", parseErr)
+		return
+	}
+}
+
+func fileRenderer(contentFile *os.File) {
+	config := config.GetLoadedConfig()
+	outputPath := config.OutputPath
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(contentFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
+
+	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil, nil)
 	resultChan := nodeProcessor.Process(nodeChan, ctx)
 
 	for result := range resultChan {
@@ -116,7 +151,6 @@ func renderFile(contentFile *os.File, outputPath string) {
 	if parseErr != nil {
 		log.Fatalf("parser error: %s", parseErr)
 	}
-
 }
 
 func renderHTMLResult(result processor.Result, inputPath, outputPath string) {
