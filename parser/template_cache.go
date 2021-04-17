@@ -12,7 +12,7 @@ var cache *TemplateCache
 
 func createCache() {
 	if cache == nil {
-		cache = &TemplateCache{}
+		cache = &TemplateCache{cache: make(map[string][]TreeNode)}
 	}
 }
 
