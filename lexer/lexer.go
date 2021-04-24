@@ -62,10 +62,29 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 
 	lineChan, lineErrChan := readLines(inputBuffer, ctx)
 
-	receiver.lineChan = lineChan
-	receiver.state = passthrough
+	tokChan := make(chan []Token)
+	tokErrChan := make(chan error)
 
-	tokChan, tokErrChan := receiver.processLines(ctx)
+	go func() {
+		defer close(tokChan)
+		defer close(tokErrChan)
+
+		lineNum := 0
+		for line := range lineChan {
+			select {
+			case tokChan <- receiver.processLine(line):
+				lineNum++
+			case <-ctx.Done():
+				return
+			}
+		}
+
+		// send final EOL token
+		EOLTok := EOLToken{}
+		EOLTok.LineNum = lineNum
+		tokChan <- []Token{EOLTok}
+	}()
+
 	lexerErrChan := make(chan error, 1)
 
 	go func() {
@@ -77,6 +96,7 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 		case err := <-tokErrChan:
 			lexerErrChan <- err
 		}
+		return
 	}()
 
 	return tokChan, lexerErrChan
@@ -118,54 +138,39 @@ func readLines(inputBuffer *bufio.Scanner, ctx context.Context) (<-chan InputLin
 	return lineChan, errChan
 }
 
-func (receiver *Lexer) getLineToProcess(remaining InputLine) (InputLine, bool) {
-	if remaining.line == "" {
-		newLine, ok := <-receiver.lineChan
-		if ok {
-			return newLine, ok
-		}
-		return remaining, ok
-	}
+func (receiver *Lexer) processLine(line InputLine) []Token {
+	tokens := []Token{}
+	remainingLine := line
 
-	return remaining, true
-}
-
-func (receiver *Lexer) processLines(ctx context.Context) (<-chan []Token, <-chan error) {
-	tokChan := make(chan []Token)
-	errChan := make(chan error, 1)
-
-	go func(receiver *Lexer) {
-		defer close(tokChan)
-		defer close(errChan)
-
-		inputLine, ok := receiver.getLineToProcess(InputLine{})
-		for ok {
-			if receiver.state == passthrough || receiver.state == passthroughNoWhitespace {
-				tok, remaining := receiver.processPassthroughTokens(inputLine)
-				if tok != nil {
-					tokChan <- []Token{tok}
-				}
-				inputLine = remaining
-			} else if receiver.state == inBlock {
-				toks, remaining := receiver.processTokensInBlock(inputLine)
-				select {
-				case tokChan <- toks:
-				case <-ctx.Done():
-					return
-				}
-				inputLine = remaining
+	for len(remainingLine.line) > 0 {
+		if receiver.state == passthrough || receiver.state == passthroughNoWhitespace {
+			tok, unprocessed := receiver.processPassthroughTokens(remainingLine)
+			if tok != nil {
+				tokens = append(tokens, tok)
 			}
 
-			inputLine, ok = receiver.getLineToProcess(inputLine)
+			remainingLine = unprocessed
+		} else if receiver.state == inBlock {
+			toks, unprocessed := receiver.processTokensInBlock(remainingLine)
+			tokens = append(tokens, toks...)
+
+			remainingLine = unprocessed
+		} else if receiver.state == inStr {
+			tok, unprocessed := receiver.getRawStringToken(remainingLine)
+			if tok != nil {
+				tokens = append(tokens, tok)
+			}
+
+			remainingLine = unprocessed
 		}
+	}
 
-		// send final EOL token
-		EOLTok := EOLToken{}
-		EOLTok.LineNum = inputLine.lineNum
-		tokChan <- []Token{EOLTok}
-	}(receiver)
+	// // send final EOL token
+	// EOLTok := EOLToken{}
+	// EOLTok.LineNum = line.lineNum
 
-	return tokChan, errChan
+	// tokens = append(tokens, EOLTok)
+	return tokens
 }
 
 func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, InputLine) {
@@ -197,57 +202,54 @@ func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, Inp
 
 func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, InputLine) {
 	toks := []Token{}
-	currentLine, ok := receiver.getLineToProcess(inputLine)
+	// Ignore whitespace
+	remainingLine := inputLine
+	// remainingLine.line = whitespaceExp.ReplaceAllString(remainingLine.line, "")
 
-	for ok && receiver.state == inBlock {
-		var (
-			tok       Token
-			remaining InputLine
-		)
-
-		// Ignore whitespace
-		woWhitespace := whitespaceExp.ReplaceAllString(currentLine.line, "")
-		currentLine.line = woWhitespace
-
-		if openRawStringExp.MatchString(currentLine.line) {
+	for len(remainingLine.line) > 0 && receiver.state == inBlock {
+		remainingLine.line = whitespaceExp.ReplaceAllString(remainingLine.line, "")
+		if openRawStringExp.MatchString(remainingLine.line) {
 			receiver.state = inStr
-			tok, remaining = receiver.getRawStringToken(currentLine)
+			// tok, unprocessed = receiver.getRawStringToken(curLine)
 		} else {
-			tok, remaining = receiver.getNextBlockToken(currentLine)
-		}
+			tok, unprocessed := receiver.getNextBlockToken(remainingLine)
 
-		if tok != nil {
-			toks = append(toks, tok)
+			if tok != nil {
+				toks = append(toks, tok)
+			}
+
+			remainingLine = unprocessed
 		}
-		currentLine, ok = receiver.getLineToProcess(remaining)
 	}
 
-	return toks, currentLine
+	return toks, remainingLine
 }
 
 func (receiver *Lexer) getRawStringToken(inputLine InputLine) (Token, InputLine) {
 	rawStr := ""
-	currentLine, ok := receiver.getLineToProcess(inputLine)
 	var tok Token
 
-	for ok && receiver.state == inStr {
-		if currentLine.line[0] == '`' {
+	lineNum := inputLine.lineNum
+	remaining := inputLine.line
+
+	for len(remaining) > 0 && receiver.state == inStr {
+		if remaining[0] == '`' {
 			// drop opening quote
-			currentLine.line = currentLine.line[1:]
+			remaining = remaining[1:]
 		}
 
-		if loc := closeRawStringExp.FindStringIndex(currentLine.line); loc != nil {
-			rawStr += currentLine.line[:loc[0]]
-			currentLine.line = currentLine.line[loc[1]:]
-			tok = StrToken{Str: rawStr, TokenData: TokenData{LineNum: inputLine.lineNum}}
+		if loc := closeRawStringExp.FindStringIndex(remaining); loc != nil {
+			rawStr += remaining[:loc[0]]
+			remaining = remaining[loc[1]:]
+			tok = StrToken{Str: rawStr, TokenData: TokenData{LineNum: lineNum}}
 			receiver.state = inBlock
 		} else {
-			rawStr += currentLine.line
-			currentLine, ok = receiver.getLineToProcess(InputLine{})
+			rawStr += remaining
+			remaining = ""
 		}
 	}
 
-	return tok, currentLine
+	return tok, InputLine{line: remaining, lineNum: lineNum}
 }
 
 func (receiver *Lexer) getNextBlockToken(inputLine InputLine) (Token, InputLine) {
