@@ -48,8 +48,6 @@ func readAndParseTokens(ctx context.Context, tokChan <-chan []lexer.Token, nodeC
 			i += j
 		}
 	}
-
-	parseErrChan <- nil
 }
 
 func parseTokens(tokens []lexer.Token, stateStack *[]int, nodeStack *[]TreeNode) (i int, head TreeNode, err error) {
