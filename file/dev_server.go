@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -23,8 +24,8 @@ func (receiver *DevServer) ListenAndServe() error {
 		Handler:     &devServerHandler{rootFS},
 	}
 
-	fmt.Printf("serving files from %s\n", receiver.ServerRoot)
-	fmt.Printf("listening on http://localhost:%d\n", receiver.Port)
+	log.Printf("serving files from %s\n", receiver.ServerRoot)
+	log.Printf("listening on http://localhost:%d\n", receiver.Port)
 
 	return server.ListenAndServe()
 }
