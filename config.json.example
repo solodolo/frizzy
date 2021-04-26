@@ -1,0 +1,6 @@
+{
+  "RootPath": "/path/to/root/",
+  "ContentDir": "content",
+  "PagesDir": "pages",
+  "OutputPath": "/path/to/output"
+}
