@@ -17,8 +17,16 @@ import (
 )
 
 func main() {
-	if config, err := config.LoadConfig("/home/dmmettlach/workspace/frizzy/config.json"); err != nil {
-		log.Fatal(fmt.Errorf("error loading config: %s", err))
+	if len(os.Args) < 2 {
+		printUsage()
+		return
+	}
+
+	configPath := os.Args[1]
+
+	if config, err := config.LoadConfig(configPath); err != nil {
+		log.Printf("error loading config: %s\n", err)
+		return
 	} else {
 		templatePathChan, _ := walkFiles(config.GetTemplatePath())
 		contentPathChan, _ := walkFiles(config.GetContentPath())
@@ -48,6 +56,10 @@ func main() {
 
 		log.Println("Done")
 	}
+}
+
+func printUsage() {
+	log.Println("usage: frizzy /path/to/config.json")
 }
 
 func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File) []<-chan error) error {
