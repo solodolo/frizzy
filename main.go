@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -22,12 +23,25 @@ func main() {
 		return
 	}
 
-	configPath := os.Args[1]
+	startDevServer := flag.Bool("d", false, "start a web server to serve files in output directory")
+	devServerPort := flag.Int("p", 8080, "the port the web server will listen on")
+	clearOutput := flag.Bool("c", false, "clear any existing output")
+	flag.Parse()
+
+	configPath := os.Args[len(os.Args)-1]
 
 	if config, err := config.LoadConfig(configPath); err != nil {
 		log.Printf("error loading config: %s\n", err)
 		return
 	} else {
+		if *clearOutput {
+			log.Printf("removing %s\n", config.OutputPath)
+			if err := clearOutputDirectory(config.OutputPath); err != nil {
+				log.Print(err)
+				return
+			}
+		}
+
 		templatePathChan, _ := walkFiles(config.GetTemplatePath())
 		contentPathChan, _ := walkFiles(config.GetContentPath())
 		pagesPathChan, _ := walkFiles(config.GetPagesPath())
@@ -36,30 +50,42 @@ func main() {
 		if err := runPipeline(templatePathChan, templateCacher); err != nil {
 			log.Println("exiting")
 			return
+		} else {
+			log.Println("finished template files")
 		}
 
 		log.Println("pipelining content files")
 		if err := runPipeline(contentPathChan, fileRenderer); err != nil {
 			log.Println("exiting")
 			return
+		} else {
+			log.Println("finished content files")
 		}
 
 		log.Println("pipelining page files")
 		if err := runPipeline(pagesPathChan, fileRenderer); err != nil {
 			log.Println("exiting")
 			return
+		} else {
+			log.Println("finished page files")
 		}
 
-		log.Println("starting development server...")
-		server := file.DevServer{ServerRoot: config.OutputPath, Port: 8080}
-		server.ListenAndServe()
+		if *startDevServer {
+			log.Println("starting development server...")
+			server := file.DevServer{ServerRoot: config.OutputPath, Port: *devServerPort}
+			server.ListenAndServe()
+		}
 
 		log.Println("Done")
 	}
 }
 
 func printUsage() {
-	log.Println("usage: frizzy /path/to/config.json")
+	log.Println("usage: frizzy [-c] /path/to/config.json")
+}
+
+func clearOutputDirectory(outputDir string) error {
+	return os.RemoveAll(outputDir)
 }
 
 func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File) []<-chan error) error {
@@ -75,6 +101,7 @@ func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File)
 			log.Printf("pipeline error: %s\n", err)
 			continue
 		}
+
 		errChans = append(errChans, handler(ctx, f)...)
 	}
 
@@ -96,7 +123,7 @@ func mergeErrChans(ctx context.Context, errChans []<-chan error) <-chan error {
 
 	errChan := make(chan error)
 
-	merge := func(ec <-chan error) {
+	merge := func(idx int, ec <-chan error, errChans []<-chan error) {
 		defer wg.Done()
 		for err := range ec {
 			select {
@@ -107,8 +134,8 @@ func mergeErrChans(ctx context.Context, errChans []<-chan error) <-chan error {
 		}
 	}
 
-	for _, ec := range errChans {
-		go merge(ec)
+	for i, ec := range errChans {
+		go merge(i, ec, errChans)
 	}
 
 	go func() {
@@ -144,12 +171,6 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 	return pathChan, errChan
 }
 
-func createOutputDirs(outputPath string) {
-	if err := os.MkdirAll(outputPath, 0750); err != nil {
-		log.Fatalf("error creating output dir %q: %s\n", outputPath, err)
-	}
-}
-
 func templateCacher(ctx context.Context, templateFile *os.File) []<-chan error {
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
@@ -163,13 +184,15 @@ func templateCacher(ctx context.Context, templateFile *os.File) []<-chan error {
 		cacheKey = cacheKey[1:]
 	}
 
+	doneChan := make(chan error)
 	go func(templateCache *parser.TemplateCache, cacheKey string) {
+		defer close(doneChan)
 		for node := range nodeChan {
 			templateCache.Insert(cacheKey, node)
 		}
 	}(templateCache, cacheKey)
 
-	return []<-chan error{lexErrChan, parserErrChan}
+	return []<-chan error{lexErrChan, parserErrChan, doneChan}
 }
 
 func fileRenderer(ctx context.Context, contentFile *os.File) []<-chan error {
@@ -181,15 +204,17 @@ func fileRenderer(ctx context.Context, contentFile *os.File) []<-chan error {
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
 
 	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil, nil)
-	resultChan := nodeProcessor.Process(nodeChan, ctx)
+	resultChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
 
-	go func(contentFile *os.File, outputPath string) {
+	doneChan := make(chan error)
+	go func(resultChan <-chan processor.Result, contentFile *os.File, outputPath string) {
+		defer close(doneChan)
 		for result := range resultChan {
 			renderHTMLResult(result, contentFile.Name(), outputPath)
 		}
-	}(contentFile, outputPath)
+	}(resultChan, contentFile, outputPath)
 
-	return []<-chan error{lexErrChan, parserErrChan}
+	return []<-chan error{lexErrChan, parserErrChan, processorErrChan, doneChan}
 }
 
 func renderHTMLResult(result processor.Result, inputPath, outputPath string) {
@@ -205,11 +230,11 @@ func renderHTMLResult(result processor.Result, inputPath, outputPath string) {
 	}
 
 	f, err := os.Create(fullPath)
-	defer f.Close()
 
 	if err != nil {
 		fmt.Printf("could not create output file %q: %s\n", fullPath, err)
 	} else {
+		defer f.Close()
 		f.WriteString(result.String())
 	}
 }
