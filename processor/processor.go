@@ -88,8 +88,9 @@ func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx cont
 }
 
 func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, error) {
-	// if head is an assignment
-	//	add to context
+	var processResult Result
+	var processError error
+
 	switch typedNode := head.(type) {
 	case *parser.NonTerminalParseNode:
 		children := head.GetChildren()
@@ -98,63 +99,37 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 			if keys, right, err := receiver.getAssignmentKeysAndValue(children); err == nil {
 				receiver.insertInContext(keys, right)
 				receiver.doExport(keys, right)
+				processResult = StringResult("")
 			} else {
-				return nil, fmt.Errorf("invalid assignment: %s", err)
+				processError = fmt.Errorf("invalid assignment: %s", err)
 			}
-
-			return StringResult(""), nil
 		} else if typedNode.IsAddition() {
-			addResult, err := processAddition(receiver.getBinaryOperatorAndOperands(children))
-
-			if err != nil {
-				return nil, fmt.Errorf("addition error: %s", err)
-			}
-
-			return addResult, nil
+			processResult, processError = processAddition(receiver.getBinaryOperatorAndOperands(children))
 		} else if typedNode.IsMultiplication() {
-			multResult, err := processMultiplication(receiver.getBinaryOperatorAndOperands(children))
-
-			if err != nil {
-				return nil, fmt.Errorf("multiplication error: %s", err)
-			}
-			return multResult, nil
+			processResult, processError = processMultiplication(receiver.getBinaryOperatorAndOperands(children))
 		} else if typedNode.IsRelation() {
-			relResult, err := processRel(receiver.getBinaryOperatorAndOperands(children))
-
-			if err != nil {
-				return nil, fmt.Errorf("rel error: %s", err)
-			}
-			return relResult, nil
+			processResult, processError = processRel(receiver.getBinaryOperatorAndOperands(children))
 		} else if typedNode.IsLogic() {
-			logicResult, err := processLogic(receiver.getBinaryOperatorAndOperands(children))
-
-			if err != nil {
-				return nil, fmt.Errorf("logic error: %s", err)
-			}
-			return logicResult, nil
+			processResult, processError = processLogic(receiver.getBinaryOperatorAndOperands(children))
 		} else if typedNode.IsUnary() {
-			unaryResult, err := processUnary(receiver.getUnaryOperatorAndOperand(children))
-
-			if err != nil {
-				return nil, fmt.Errorf("unary error: %s", err)
-			}
-
-			return unaryResult, nil
+			processResult, processError = processUnary(receiver.getUnaryOperatorAndOperand(children))
 		} else {
 			// TODO: This smells bad
 			if len(children) == 1 {
-				return receiver.processHeadNode(children[0])
-			}
-			ret := ""
-			for _, child := range children {
-				tmpRet, err := receiver.processHeadNode(child)
-				if err != nil {
-					return nil, err
+				processResult, processError = receiver.processHeadNode(children[0])
+			} else {
+				ret := ""
+				for _, child := range children {
+					tmpRet, err := receiver.processHeadNode(child)
+					if err != nil {
+						processError = err
+						break
+					}
+					ret += tmpRet.String()
 				}
-				ret += tmpRet.String()
-			}
 
-			return StringResult(ret), nil
+				processResult = StringResult(ret)
+			}
 		}
 	case *parser.ContentParseNode:
 		children := typedNode.GetChildren()
@@ -163,29 +138,31 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		for _, child := range children {
 			childResult, err := receiver.processHeadNode(child)
 			if err != nil {
-				return nil, err
+				processError = err
+				break
 			}
 			resultText = append(resultText, childResult.String())
 		}
 
-		return StringResult(strings.Join(resultText, "")), nil
+		processResult = StringResult(strings.Join(resultText, ""))
 	case *parser.ForLoopParseNode:
 		inputResult, err := receiver.processHeadNode(typedNode.GetLoopInput())
 
 		if err != nil {
-			return nil, err
+			processError = err
+		} else {
+			inputContexts := receiver.getLoopInputContexts(&inputResult)
+			loopBody := typedNode.GetLoopBody()
+			loopIdent := typedNode.GetLoopIdent().(*parser.IdentParseNode)
+
+			processResult = receiver.generateLoopBody(loopBody, loopIdent, inputContexts)
 		}
-
-		inputContexts := receiver.getLoopInputContexts(&inputResult)
-		loopBody := typedNode.GetLoopBody()
-		loopIdent := typedNode.GetLoopIdent().(*parser.IdentParseNode)
-
-		return receiver.generateLoopBody(loopBody, loopIdent, inputContexts), nil
 	case *parser.IfStatementParseNode:
 		ifResult, err := receiver.processHeadNode(typedNode.GetIfConditional())
 
 		if err != nil {
-			return nil, err
+			processError = err
+			break
 		}
 
 		ifCondition := ifResult.(BoolResult)
@@ -193,10 +170,11 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		if bool(ifCondition) {
 			ifBody, err := receiver.processHeadNode(typedNode.GetIfBody())
 			if err != nil {
-				return nil, err
+				processError = err
+			} else {
+				processResult = StringResult(ifBody.String())
 			}
-
-			return StringResult(ifBody.String()), nil
+			break
 		}
 
 		// check any else_ifs
@@ -204,7 +182,8 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		for i, elseCondition := range elseIfConditions {
 			elseIfResult, err := receiver.processHeadNode(elseCondition)
 			if err != nil {
-				return nil, err
+				processError = err
+				break
 			}
 
 			condition := elseIfResult.(BoolResult)
@@ -213,12 +192,17 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 					body, err := receiver.processHeadNode(elseIfBody)
 
 					if err != nil {
-						return nil, err
+						processError = err
+					} else {
+						processResult = StringResult(body.String())
 					}
-
-					return StringResult(body.String()), nil
+					break
 				}
 			}
+		}
+
+		if processError != nil || processResult != nil {
+			break
 		}
 
 		// finally try for the else
@@ -226,14 +210,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 			body, err := receiver.processHeadNode(elseBody)
 
 			if err != nil {
-				return nil, err
+				processError = err
+			} else {
+				processResult = StringResult(body.String())
 			}
-
-			return StringResult(body.String()), nil
+			break
 		}
 
 		// nothing is true
-		return StringResult(""), nil
+		processResult = StringResult("")
 	case *parser.FuncCallParseNode:
 		funcName := typedNode.GetFuncName()
 		args := typedNode.GetArgs()
@@ -243,27 +228,27 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 			argResult, err := receiver.processHeadNode(arg)
 
 			if err != nil {
-				return nil, err
+				processError = err
+				break
 			}
 
 			processedArgs = append(processedArgs, argResult)
 		}
 
-		result, ok := receiver.callFunction(funcName, processedArgs)
-
-		if ok {
-			return result, nil
+		if processError == nil {
+			if result, ok := receiver.callFunction(funcName, processedArgs); ok {
+				processResult = result
+			} else {
+				processError = fmt.Errorf("invalid function call %s %v", funcName, processedArgs)
+			}
 		}
 
-		// TODO: Replace with error
-		return nil, fmt.Errorf("invalid function call %s %v", funcName, processedArgs)
-
 	case *parser.StringParseNode:
-		return StringResult(typedNode.Value), nil
+		processResult = StringResult(typedNode.Value)
 	case *parser.NumParseNode:
-		return IntResult(typedNode.Value), nil
+		processResult = IntResult(typedNode.Value)
 	case *parser.BoolParseNode:
-		return BoolResult(typedNode.Value), nil
+		processResult = BoolResult(typedNode.Value)
 	case *parser.VarNameParseNode:
 		keys := typedNode.GetVarNameParts()
 		if node, ok := receiver.lookupInContext(keys); ok {
@@ -271,31 +256,33 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 			// current is the last context node so we can
 			// return its result or its further nested context
 			if node.HasResult() {
-				return node.result, nil
+				processResult = node.result
+			} else {
+				processResult = ContainerResult{node.child}
 			}
-
-			return ContainerResult{node.child}, nil
+		} else {
+			log.Printf("context lookup failed: %q", strings.Join(keys, "."))
+			processResult = StringResult("")
 		}
-
-		log.Printf("context lookup failed: %q", strings.Join(keys, "."))
-		return StringResult(""), nil
 	case *parser.BlockParseNode:
 		content := typedNode.GetContent()
 		parsed, err := receiver.processHeadNode(content)
 
 		if err != nil {
-			return nil, err
-		}
+			processError = err
+		} else {
+			result := ""
+			if typedNode.IsPrintable() {
+				result = parsed.String()
+			}
 
-		result := ""
-		if typedNode.IsPrintable() {
-			result = parsed.String()
+			processResult = StringResult(result)
 		}
-
-		return StringResult(result), nil
 	default:
-		return StringResult(""), nil
+		processResult = StringResult("")
 	}
+
+	return processResult, processError
 }
 
 // Returns the left side of the assignment as a string and the right as a processed Result
