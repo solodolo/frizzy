@@ -2,5 +2,6 @@
   "RootPath": "/path/to/root/",
   "ContentDir": "content",
   "PagesDir": "pages",
+  "TemplateDir": "templates",
   "OutputPath": "/path/to/output"
 }
