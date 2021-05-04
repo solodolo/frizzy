@@ -36,7 +36,7 @@ func GetContentPaths(subpath string) []string {
 	return contentDirs
 }
 
-func GetRelativePathTo(filepath string) string {
+func TrimRootPrefix(filepath string) string {
 	config := config.GetLoadedConfig()
 	return strings.TrimPrefix(filepath, config.RootPath)
 }
