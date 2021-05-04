@@ -1123,7 +1123,7 @@ func runProcessWithExportStore(head parser.TreeNode, filename string) (<-chan Re
 
 	context := &Context{}
 	processor := NewNodeProcessor(filename, context, nil, exportStorage, nil)
-	resultChan := processor.Process(nodeChan, goContext.Background())
+	resultChan, _ := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan, exportStorage
 }
@@ -1132,7 +1132,7 @@ func runProcessWithContext(head parser.TreeNode, context *Context) <-chan Result
 	nodeChan := getNodeChan([]parser.TreeNode{head})
 
 	processor := NewNodeProcessor("", context, nil, nil, nil)
-	resultChan := processor.Process(nodeChan, goContext.Background())
+	resultChan, _ := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan
 }
@@ -1143,7 +1143,7 @@ func runProcessWithGetPathFunc(head parser.TreeNode, exportStore ExportStorage, 
 	processor := NewNodeProcessor("", &Context{}, getPathFunc, exportStore, nil)
 	processor.PathReader = getPathFunc
 
-	resultChan := processor.Process(nodeChan, goContext.Background())
+	resultChan, _ := processor.Process(nodeChan, goContext.Background())
 
 	return resultChan
 }

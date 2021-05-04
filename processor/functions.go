@@ -87,7 +87,7 @@ func Paginate(contentPaths []string, templatePath string, numPerPage int) Result
 		}(nodeChan, templateNodes)
 
 		processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil)
-		resultChan := processor.Process(nodeChan, goContext.Background())
+		resultChan, _ := processor.Process(nodeChan, goContext.Background())
 		if result := <-resultChan; result != nil {
 			output += result.String()
 		}

@@ -57,14 +57,21 @@ func NewNodeProcessor(
 
 // Process reads each node from nodeChan and walks through its tree
 // turning parse nodes into output
-func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx context.Context) <-chan Result {
+func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx context.Context) (<-chan Result, <-chan error) {
 	resultChan := make(chan Result)
+	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(resultChan)
+		defer close(errChan)
 
 		for node := range nodeChan {
-			result, _ := receiver.processHeadNode(node)
+			result, err := receiver.processHeadNode(node)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
 			if receiver.PostProcessor != nil {
 				result = receiver.PostProcessor.Call(result)
 			}
@@ -77,7 +84,7 @@ func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx cont
 		}
 	}()
 
-	return resultChan
+	return resultChan, errChan
 }
 
 func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, error) {
