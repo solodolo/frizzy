@@ -1,7 +1,6 @@
 package processor
 
 import (
-	goContext "context"
 	"io"
 	"log"
 	"math"
@@ -78,17 +77,9 @@ func Paginate(contentPaths []string, templatePath string, numPerPage int) Result
 
 	output := ""
 	for _, paginationContext := range paginationContexts {
-		nodeChan := make(chan parser.TreeNode)
-		go func(nodeChan chan parser.TreeNode, templateNodes *[]parser.TreeNode) {
-			defer close(nodeChan)
-			for _, node := range *templateNodes {
-				nodeChan <- node
-			}
-		}(nodeChan, templateNodes)
-
 		processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil)
-		resultChan, _ := processor.Process(nodeChan, goContext.Background())
-		if result := <-resultChan; result != nil {
+		for _, node := range *templateNodes {
+			result, _ := processor.processHeadNode(node)
 			output += result.String()
 		}
 	}
