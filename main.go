@@ -218,7 +218,7 @@ func fileRenderer(ctx context.Context, contentFile *os.File) []<-chan error {
 }
 
 func renderHTMLResult(result processor.Result, inputPath, outputPath string) {
-	relativeInputPath := file.GetRelativePathTo(inputPath)
+	relativeInputPath := file.TrimRootPrefix(inputPath)
 	fullPath := filepath.Join(outputPath, relativeInputPath)
 
 	if !strings.HasSuffix(fullPath, ".html") {
