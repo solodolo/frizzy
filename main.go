@@ -204,7 +204,10 @@ func fileRenderer(ctx context.Context, contentFile *os.File) []<-chan error {
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
 
 	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), nil, nil, nil, nil)
-	resultChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
+	processorChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
+
+	postProcessor := processor.MarkdownPostProcessor{Filepath: contentFile.Name()}
+	resultChan := postProcessor.Call(processorChan)
 
 	doneChan := make(chan error)
 	go func(resultChan <-chan processor.Result, contentFile *os.File, outputPath string) {

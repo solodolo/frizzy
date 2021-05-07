@@ -14,13 +14,21 @@ type MarkdownPostProcessor struct {
 
 // Call turns a processed markdown result into a processed html result
 // If the input is not markdown, it is passed through
-func (receiver *MarkdownPostProcessor) Call(result Result) Result {
+func (receiver *MarkdownPostProcessor) Call(resultChan <-chan Result) <-chan Result {
 	if filepath.Ext(receiver.Filepath) == ".md" {
-		parser := parser.NewWithExtensions(parser.FencedCode)
-		inputBytes := []byte(result.String())
-		mdBytes := string(markdown.ToHTML(inputBytes, parser, nil))
-		return StringResult(mdBytes)
+		postProcessChan := make(chan Result)
+		go func() {
+			defer close(postProcessChan)
+			for result := range resultChan {
+				parser := parser.NewWithExtensions(parser.FencedCode)
+				inputBytes := []byte(result.String())
+				mdBytes := string(markdown.ToHTML(inputBytes, parser, nil))
+				postProcessChan <- StringResult(mdBytes)
+			}
+		}()
+
+		return postProcessChan
 	}
 
-	return result
+	return resultChan
 }

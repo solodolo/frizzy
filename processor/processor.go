@@ -18,7 +18,6 @@ type NodeProcessor struct {
 	PathReader     file.GetPathFunc
 	ExportStore    ExportStorage
 	FunctionModule FunctionModule
-	PostProcessor  PostProcessable
 }
 
 func NewNodeProcessor(
@@ -33,7 +32,6 @@ func NewNodeProcessor(
 		PathReader:     pathReader,
 		ExportStore:    exportStore,
 		FunctionModule: funcModule,
-		PostProcessor:  &MarkdownPostProcessor{Filepath: filepath},
 	}
 
 	if context == nil {
@@ -70,10 +68,6 @@ func (receiver *NodeProcessor) Process(nodeChan <-chan parser.TreeNode, ctx cont
 			if err != nil {
 				errChan <- err
 				return
-			}
-
-			if receiver.PostProcessor != nil {
-				result = receiver.PostProcessor.Call(result)
 			}
 
 			select {
