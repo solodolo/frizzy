@@ -111,6 +111,8 @@ func getPaginationInfo(file *os.File) (string, int, bool) {
 		ok = false
 	}
 
+	file.Seek(0, io.SeekStart)
+
 	return contentPath, numPerPage, ok
 }
 
@@ -120,7 +122,7 @@ func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File,
 
 	errChans := []<-chan error{}
 	for inputPath := range pathChan {
-		log.Printf("    %s -> ", inputPath)
+		log.Printf("    %s", inputPath)
 		f, err := os.Open(inputPath)
 
 		if err != nil {
@@ -224,6 +226,8 @@ func templateCacher(ctx context.Context, templateFile *os.File, curPage int) []<
 	doneChan := make(chan error)
 	go func(templateCache *parser.TemplateCache, cacheKey string) {
 		defer close(doneChan)
+		defer templateFile.Close()
+
 		for node := range nodeChan {
 			templateCache.Insert(cacheKey, node)
 		}
@@ -252,9 +256,10 @@ func fileRenderer(ctx context.Context, contentFile *os.File, curPage int) []<-ch
 	doneChan := make(chan error)
 	go func(resultChan <-chan processor.Result, contentFile *os.File) {
 		defer close(doneChan)
+		defer contentFile.Close()
+
 		for result := range resultChan {
 			outputPath := getOutputPath(contentFile.Name(), curPage)
-			log.Println(outputPath)
 			renderHTMLResult(result, outputPath)
 		}
 	}(resultChan, contentFile)
