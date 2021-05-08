@@ -19,33 +19,42 @@ func PrintRaw(args ...Result) Result {
 
 func PaginateRaw(args ...Result) Result {
 	// TODO: replace nils with errors
-	if len(args) < 3 {
+	if len(args) < 4 {
 		return nil
 	}
 
 	var filePathString, templatePathString string
-	var numPerPageInt int
+	var curPageInt, numPerPageInt int
 
-	if filePath, ok := args[0].(StringResult); ok {
+	if curPage, ok := args[0].(IntResult); ok {
+		curPageInt = int(curPage)
+	} else {
+		return nil
+	}
+
+	// Path to content to be paginated
+	if filePath, ok := args[1].(StringResult); ok {
 		filePathString = string(filePath)
 	} else {
 		return nil
 	}
 
-	if templatePath, ok := args[1].(StringResult); ok {
+	// Path to the template to use for each content file on the page
+	if templatePath, ok := args[2].(StringResult); ok {
 		templatePathString = string(templatePath)
 	} else {
 		return nil
 	}
 
-	if numPerPage, ok := args[2].(IntResult); ok {
+	// Number of content items per page
+	if numPerPage, ok := args[3].(IntResult); ok {
 		numPerPageInt = int(numPerPage)
 	} else {
 		return nil
 	}
 
 	contentPaths := file.GetContentPaths(filePathString)
-	return Paginate(contentPaths, templatePathString, numPerPageInt)
+	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt)
 }
 
 func TemplateRaw(args ...Result) Result {
@@ -69,60 +78,55 @@ func Print(result Result) StringResult {
 	return StringResult(result.String())
 }
 
-func Paginate(contentPaths []string, templatePath string, numPerPage int) Result {
-	paginationContexts := buildPaginationContexts(contentPaths, numPerPage)
+func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) Result {
+	paginationContext := BuildPaginationContext(contentPaths, templatePath, curPage, numPerPage)
 
 	templateCache := parser.GetTemplateCache()
 	templateNodes := templateCache.Get(templatePath)
 
 	output := ""
-	for _, paginationContext := range paginationContexts {
-		processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil)
-		for _, node := range *templateNodes {
-			result, _ := processor.processHeadNode(node)
-			output += result.String()
-		}
+	processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil)
+	for _, node := range *templateNodes {
+		result, _ := processor.processHeadNode(node)
+		output += result.String()
 	}
+
 	return StringResult(output)
 }
 
-func buildPaginationContexts(contentPaths []string, numPerPage int) []*Context {
+func BuildPaginationContext(contentPaths []string, templatePath string, curPage int, numPerPage int) *Context {
 	if numPerPage == 0 {
-		return []*Context{}
+		return nil
 	}
 
 	numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
-	ret := make([]*Context, numPages)
 	exportStore := GetExportStore()
-	// for each page
-	for curPage := 1; curPage <= numPages; curPage++ {
-		// create a page context
-		pageContext := &Context{
-			"curPage":  &ContextNode{result: IntResult(curPage)},
-			"numPages": &ContextNode{result: IntResult(numPages)},
-			"prevPage": &ContextNode{result: StringResult("")},
-			"nextPage": &ContextNode{result: StringResult("")},
-		}
-
-		// get the paths of the content files that will be on this page
-		offset := (curPage - 1) * numPerPage
-		last := minInt(len(contentPaths), offset+numPerPage)
-		contentPathsOnPage := contentPaths[offset:last]
-
-		// get the context for each content file on this page
-		contextsOnPage := &Context{}
-		for i, contentPath := range contentPathsOnPage {
-			// key content like an array
-			key := strconv.Itoa(i)
-			(*contextsOnPage)[key] = &ContextNode{child: exportStore.Get(contentPath)}
-		}
-
-		// add content file contexts to pageContext
-		(*pageContext)["content"] = &ContextNode{child: contextsOnPage}
-		ret[curPage-1] = pageContext
+	// create a page context
+	pageContext := &Context{
+		"curPage":      &ContextNode{result: IntResult(curPage)},
+		"templatePath": &ContextNode{result: StringResult(templatePath)},
+		"numPages":     &ContextNode{result: IntResult(numPages)},
+		"prevPage":     &ContextNode{result: StringResult("")},
+		"nextPage":     &ContextNode{result: StringResult("")},
 	}
 
-	return ret
+	// get the paths of the content files that will be on this page
+	offset := (curPage - 1) * numPerPage
+	last := minInt(len(contentPaths), offset+numPerPage)
+	contentPathsOnPage := contentPaths[offset:last]
+
+	// get the context for each content file on this page
+	contextsOnPage := &Context{}
+	for i, contentPath := range contentPathsOnPage {
+		// key content like an array
+		key := strconv.Itoa(i)
+		(*contextsOnPage)[key] = &ContextNode{child: exportStore.Get(contentPath)}
+	}
+
+	// add content file contexts to pageContext
+	(*pageContext)["content"] = &ContextNode{child: contextsOnPage}
+
+	return pageContext
 }
 
 func Template(templatePath string) Result {
