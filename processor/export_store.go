@@ -2,8 +2,6 @@ package processor
 
 import (
 	"sync"
-
-	"mettlach.codes/frizzy/file"
 )
 
 // Files can export variables for use by other files
@@ -26,15 +24,7 @@ type ExportFileStore struct {
 
 func NewExportFileStore(filepath string) *ExportFileStore {
 	store := &ExportFileStore{Filepath: filepath}
-	store.InsertSpecialValues()
-
 	return store
-}
-
-// InsertSpecialValues stores meta context values like a link to the file
-func (receiver *ExportFileStore) InsertSpecialValues() {
-	receiver.Insert([]string{"_href"},
-		StringResult(file.GetRelativePathTo(receiver.Filepath)))
 }
 
 // Insert inserts the key, value pair of the export context
