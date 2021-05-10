@@ -92,18 +92,27 @@ func clearOutputDirectory(outputDir string) error {
 	return os.RemoveAll(outputDir)
 }
 
-func getPaginationInfo(file *os.File) (string, int, bool) {
+func getPaginationInfo(inputPath string) (string, int, bool) {
 	var (
 		contentPath string
 		numPerPage  int
 		ok          bool = true
 	)
 
-	paginationRegex := regexp.MustCompile(`{{\s*paginate\(("[^"]+"),\s*("[^"]+"),\s*(\d+)\)\s*}}`)
+	file, err := os.Open(inputPath)
+
+	if err != nil {
+		log.Printf("pipeline error: %s\n", err)
+		return contentPath, numPerPage, false
+	}
+
+	defer file.Close()
+
+	paginationRegex := regexp.MustCompile(`[{{|{{:]\s*paginate\(("[^"]+"),\s*("[^"]+"),\s*(\d+)\)\s*}}`)
 	if bytes, err := io.ReadAll(file); err != nil {
 		ok = false
 	} else if found := paginationRegex.FindSubmatch(bytes); found != nil {
-		contentPath = string(found[1])
+		contentPath = strings.ReplaceAll(string(found[1]), "\"", "")
 		if numPerPage, err = strconv.Atoi(string(found[3])); err != nil {
 			ok = false
 		}
@@ -111,36 +120,26 @@ func getPaginationInfo(file *os.File) (string, int, bool) {
 		ok = false
 	}
 
-	file.Seek(0, io.SeekStart)
-
 	return contentPath, numPerPage, ok
 }
 
-func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File, int) []<-chan error) error {
+func runPipeline(pathChan <-chan string, handler func(context.Context, string, int) []<-chan error) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	errChans := []<-chan error{}
 	for inputPath := range pathChan {
 		log.Printf("    %s", inputPath)
-		f, err := os.Open(inputPath)
 
-		if err != nil {
-			log.Printf("pipeline error: %s\n", err)
-			continue
-		}
-
-		if contentPath, numPerPage, ok := getPaginationInfo(f); ok {
+		if contentPath, numPerPage, ok := getPaginationInfo(inputPath); ok {
 			contentPaths := file.GetContentPaths(contentPath)
 			numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
 
 			for curPage := 1; curPage <= numPages; curPage++ {
-				paginationCtx := &processor.Context{}
-				paginationCtx.Insert([]string{"curPage"}, processor.IntResult(curPage))
-				errChans = append(errChans, handler(ctx, f, curPage)...)
+				errChans = append(errChans, handler(ctx, inputPath, curPage)...)
 			}
 		} else {
-			errChans = append(errChans, handler(ctx, f, -1)...)
+			errChans = append(errChans, handler(ctx, inputPath, -1)...)
 		}
 	}
 
@@ -210,7 +209,14 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 	return pathChan, errChan
 }
 
-func templateCacher(ctx context.Context, templateFile *os.File, curPage int) []<-chan error {
+func templateCacher(ctx context.Context, inputPath string, curPage int) []<-chan error {
+	templateFile, err := os.Open(inputPath)
+
+	if err != nil {
+		log.Printf("pipeline error: %s\n", err)
+		return nil
+	}
+
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
@@ -236,12 +242,19 @@ func templateCacher(ctx context.Context, templateFile *os.File, curPage int) []<
 	return []<-chan error{lexErrChan, parserErrChan, doneChan}
 }
 
-func fileRenderer(ctx context.Context, contentFile *os.File, curPage int) []<-chan error {
+func fileRenderer(ctx context.Context, inputPath string, curPage int) []<-chan error {
+	contentFile, err := os.Open(inputPath)
+
+	if err != nil {
+		log.Printf("pipeline error: %s\n", err)
+		return nil
+	}
+
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(contentFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
 
-	var processorCtx *processor.Context
+	processorCtx := &processor.Context{}
 
 	if curPage > 0 {
 		processorCtx.Insert([]string{"curPage"}, processor.IntResult(curPage))
@@ -260,6 +273,8 @@ func fileRenderer(ctx context.Context, contentFile *os.File, curPage int) []<-ch
 
 		for result := range resultChan {
 			outputPath := getOutputPath(contentFile.Name(), curPage)
+			exportStore := processor.GetExportStore()
+			exportStore.Insert(contentFile.Name(), []string{"_href"}, processor.StringResult(outputPath))
 			renderHTMLResult(result, outputPath)
 		}
 	}(resultChan, contentFile)
@@ -278,7 +293,7 @@ func getOutputPath(inputPath string, curPage int) string {
 		fullPath = strings.TrimSuffix(fullPath, filepath.Ext(fullPath)) + ".html"
 	} else {
 		trimmed := strings.TrimSuffix(fullPath, filepath.Ext(fullPath))
-		fullPath = filepath.Join(trimmed, fmt.Sprint(curPage)) + ".html"
+		fullPath = fmt.Sprintf("%s_%03d.html", trimmed, curPage)
 	}
 
 	return fullPath
