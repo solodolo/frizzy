@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -13,14 +14,9 @@ import (
 	"mettlach.codes/frizzy/parser"
 )
 
-func PrintRaw(args ...Result) Result {
-	return Print(args[0])
-}
-
-func PaginateRaw(args ...Result) Result {
-	// TODO: replace nils with errors
+func PaginateRaw(args ...Result) (Result, error) {
 	if len(args) < 4 {
-		return nil
+		return nil, fmt.Errorf("paginate expects 4 args, got %d", len(args))
 	}
 
 	var filePathString, templatePathString string
@@ -29,53 +25,49 @@ func PaginateRaw(args ...Result) Result {
 	if curPage, ok := args[0].(IntResult); ok {
 		curPageInt = int(curPage)
 	} else {
-		return nil
+		return nil, fmt.Errorf("expected current page to be an int, got %T", args[0])
 	}
 
 	// Path to content to be paginated
 	if filePath, ok := args[1].(StringResult); ok {
 		filePathString = string(filePath)
 	} else {
-		return nil
+		return nil, fmt.Errorf("expected file path to be an string, got %T", args[1])
 	}
 
 	// Path to the template to use for each content file on the page
 	if templatePath, ok := args[2].(StringResult); ok {
 		templatePathString = string(templatePath)
 	} else {
-		return nil
+		return nil, fmt.Errorf("expected template path to be an string, got %T", args[2])
 	}
 
 	// Number of content items per page
 	if numPerPage, ok := args[3].(IntResult); ok {
 		numPerPageInt = int(numPerPage)
 	} else {
-		return nil
+		return nil, fmt.Errorf("expected number per page to be an int, got %T", args[3])
 	}
 
 	contentPaths := file.GetContentPaths(filePathString)
-	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt)
+	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt), nil
 }
 
-func TemplateRaw(args ...Result) Result {
-	var ret Result
+func TemplateRaw(args ...Result) (Result, error) {
+	var (
+		ret Result
+		err error
+	)
 
 	if len(args) != 1 {
-		log.Printf("`template` expects one argument, got %d", len(args))
+		err = fmt.Errorf("`template` expects one argument, got %d", len(args))
 	} else if templatePath, ok := args[0].(StringResult); !ok {
-		log.Printf("invalid template argument %s\n", args[0])
+		err = fmt.Errorf("invalid template argument %s\n", args[0])
 	} else {
 		ret = Template(string(templatePath))
 	}
 
-	return ret
-}
-
-// Print takes a result and returns the string version of it
-// TODO: This probably isn't needed unless the standard block
-// should not return anything
-func Print(result Result) StringResult {
-	return StringResult(result.String())
+	return ret, err
 }
 
 func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) Result {

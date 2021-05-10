@@ -237,10 +237,10 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		}
 
 		if processError == nil {
-			if result, ok := receiver.callFunction(funcName, processedArgs); ok {
+			if result, err := receiver.callFunction(funcName, processedArgs); err == nil {
 				processResult = result
 			} else {
-				processError = fmt.Errorf("invalid function call %s %v", funcName, processedArgs)
+				processError = err
 			}
 		}
 
@@ -333,7 +333,7 @@ func (receiver *NodeProcessor) doGetContext(filePath string) *Context {
 	return &Context{}
 }
 
-func (receiver *NodeProcessor) callFunction(funcName string, args []Result) (Result, bool) {
+func (receiver *NodeProcessor) callFunction(funcName string, args []Result) (Result, error) {
 	return receiver.FunctionModule.CallFunction(funcName, args...)
 }
 
