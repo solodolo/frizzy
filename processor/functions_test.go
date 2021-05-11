@@ -23,10 +23,14 @@ func TestBuildPaginationContextsContainsCorrectNumberOfContexts(t *testing.T) {
 		contentPaths := make([]string, test.numPaths)
 		numPerPage := test.numPerPage
 
-		paginationContexts := buildPaginationContexts(contentPaths, numPerPage)
-
-		if len(paginationContexts) != test.expected {
-			t.Errorf("expected %d pages, got %d", test.expected, len(paginationContexts))
+		paginationContext := buildPaginationContext(contentPaths, 1, numPerPage)
+		if numPages, ok := paginationContext.At("numPages"); ok {
+			result := numPages.result.(IntResult)
+			if int(result) != test.expected {
+				t.Errorf("expected %d pages, got %d", test.expected, int(result))
+			}
+		} else if numPerPage > 0 {
+			t.Errorf("expected context to contain \"numPages\" key")
 		}
 	}
 }
