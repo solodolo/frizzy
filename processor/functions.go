@@ -71,7 +71,7 @@ func TemplateRaw(args ...Result) (Result, error) {
 }
 
 func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) Result {
-	paginationContext := BuildPaginationContext(contentPaths, templatePath, curPage, numPerPage)
+	paginationContext := buildPaginationContext(contentPaths, curPage, numPerPage)
 
 	templateCache := parser.GetTemplateCache()
 	templateNodes := templateCache.Get(templatePath)
@@ -86,8 +86,8 @@ func Paginate(contentPaths []string, templatePath string, curPage int, numPerPag
 	return StringResult(output)
 }
 
-func BuildPaginationContext(contentPaths []string, templatePath string, curPage int, numPerPage int) *Context {
-	if numPerPage == 0 {
+func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) *Context {
+	if numPerPage <= 0 {
 		return nil
 	}
 
@@ -95,11 +95,10 @@ func BuildPaginationContext(contentPaths []string, templatePath string, curPage 
 	exportStore := GetExportStore()
 	// create a page context
 	pageContext := &Context{
-		"curPage":      &ContextNode{result: IntResult(curPage)},
-		"templatePath": &ContextNode{result: StringResult(templatePath)},
-		"numPages":     &ContextNode{result: IntResult(numPages)},
-		"prevPage":     &ContextNode{result: StringResult("")},
-		"nextPage":     &ContextNode{result: StringResult("")},
+		"curPage":  &ContextNode{result: IntResult(curPage)},
+		"numPages": &ContextNode{result: IntResult(numPages)},
+		"prevPage": &ContextNode{result: StringResult("")},
+		"nextPage": &ContextNode{result: StringResult("")},
 	}
 
 	// get the paths of the content files that will be on this page
