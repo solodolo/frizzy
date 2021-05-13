@@ -263,8 +263,7 @@ func fileRenderer(ctx context.Context, inputPath string, curPage int) []<-chan e
 	nodeProcessor := processor.NewNodeProcessor(contentFile.Name(), processorCtx, nil, nil, nil)
 	processorChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
 
-	postProcessor := processor.MarkdownPostProcessor{Filepath: contentFile.Name()}
-	resultChan := postProcessor.Call(processorChan)
+	resultChan := processor.PostProcessMarkdown(contentFile.Name(), processorChan)
 
 	doneChan := make(chan error)
 	go func(resultChan <-chan processor.Result, contentFile *os.File) {
@@ -272,7 +271,13 @@ func fileRenderer(ctx context.Context, inputPath string, curPage int) []<-chan e
 		defer contentFile.Close()
 
 		for result := range resultChan {
-			outputPath := getOutputPath(contentFile.Name(), curPage)
+			var outputPath string
+			if curPage < 1 {
+				outputPath = processor.GetMarkdownOutputPath(contentFile.Name())
+			} else {
+				outputPath = processor.GetPagedMarkdownOutputPath(contentFile.Name(), curPage)
+			}
+
 			exportStore := processor.GetExportStore()
 			exportStore.Insert(contentFile.Name(), []string{"_href"}, processor.StringResult(outputPath))
 			renderHTMLResult(result, outputPath)
@@ -280,23 +285,6 @@ func fileRenderer(ctx context.Context, inputPath string, curPage int) []<-chan e
 	}(resultChan, contentFile)
 
 	return []<-chan error{lexErrChan, parserErrChan, processorErrChan, doneChan}
-}
-
-func getOutputPath(inputPath string, curPage int) string {
-	config := config.GetLoadedConfig()
-	outputPath := config.OutputPath
-
-	relativeInputPath := file.TrimRootPrefix(inputPath)
-	fullPath := filepath.Join(outputPath, relativeInputPath)
-
-	if curPage < 1 {
-		fullPath = strings.TrimSuffix(fullPath, filepath.Ext(fullPath)) + ".html"
-	} else {
-		trimmed := strings.TrimSuffix(fullPath, filepath.Ext(fullPath))
-		fullPath = fmt.Sprintf("%s_%03d.html", trimmed, curPage)
-	}
-
-	return fullPath
 }
 
 func renderHTMLResult(result processor.Result, outputPath string) {
