@@ -87,7 +87,7 @@ func Paginate(contentPaths []string, templatePath string, curPage int, numPerPag
 }
 
 func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) *Context {
-	if numPerPage <= 0 {
+	if numPerPage < 1 || curPage < 1 {
 		return nil
 	}
 
@@ -102,7 +102,7 @@ func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) 
 	}
 
 	// get the paths of the content files that will be on this page
-	offset := (curPage - 1) * numPerPage
+	offset := minInt(len(contentPaths), (curPage-1)*numPerPage)
 	last := minInt(len(contentPaths), offset+numPerPage)
 	contentPathsOnPage := contentPaths[offset:last]
 
