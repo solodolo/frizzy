@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func RenderHtmlResults(resultChan <-chan Result, outputPath string, curPage int) <-chan error {
+func RenderHtmlResults(resultChan <-chan Result, outputPath string) <-chan error {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(errChan)

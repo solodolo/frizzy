@@ -301,7 +301,7 @@ func processAndRender(ctx context.Context, inputPath string, nodeChan <-chan par
 	nodeProcessor.ExportStore.Insert([]string{"_href"}, processor.StringResult(outputPath))
 	processorChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
 	resultChan := processor.PostProcessMarkdown(inputPath, processorChan)
-	rendererErrChan := processor.RenderHtmlResults(resultChan, outputPath, curPage)
+	rendererErrChan := processor.RenderHtmlResults(resultChan, outputPath)
 
 	return processorErrChan, rendererErrChan
 }
