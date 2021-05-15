@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -23,14 +24,20 @@ func TestBuildPaginationContextReturnsCorrectNumberOfPages(t *testing.T) {
 		contentPaths := make([]string, test.numPaths)
 		numPerPage := test.numPerPage
 
-		paginationContext := buildPaginationContext(contentPaths, 1, numPerPage)
+		paginationContext, err := buildPaginationContext(contentPaths, 1, numPerPage)
+
+		if err != nil {
+			t.Errorf("%v: expected no errors, got %q\n", test, err)
+			return
+		}
+
 		if numPages, ok := paginationContext.At("numPages"); ok {
 			result := numPages.result.(IntResult)
 			if int(result) != test.expected {
-				t.Errorf("expected %d pages, got %d", test.expected, int(result))
+				t.Errorf("%v: expected %d pages, got %d", test, test.expected, int(result))
 			}
 		} else if numPerPage > 0 {
-			t.Errorf("expected context to contain \"numPages\" key")
+			t.Errorf("%v: expected context to contain \"numPages\" key", test)
 		}
 	}
 }
@@ -43,7 +50,6 @@ func TestBuildPaginationContextReturnsCorrectContentKeys(t *testing.T) {
 		{50, 8, 8, 0},    // 7 pages
 		{50, 5, 2, 5},    // 10 pages
 		{1, 1, 1, 1},     // 1 page
-		{0, 0, 0, 0},     // 0 pages
 		{0, 200, 0, 0},   // 0 pages
 		{2, 3, 8, 0},     // 1 page
 		{2, 4000, 1, 2},  // 1 page
@@ -57,7 +63,13 @@ func TestBuildPaginationContextReturnsCorrectContentKeys(t *testing.T) {
 		numPerPage := test.numPerPage
 		curPage := test.curPage
 
-		paginationContext := buildPaginationContext(contentPaths, curPage, numPerPage)
+		paginationContext, err := buildPaginationContext(contentPaths, curPage, numPerPage)
+
+		if err != nil {
+			t.Errorf("%v: expected no errors, got %q\n", test, err)
+			return
+		}
+
 		content, ok := paginationContext.At("content")
 
 		if !ok {
@@ -69,6 +81,36 @@ func TestBuildPaginationContextReturnsCorrectContentKeys(t *testing.T) {
 
 		if len(*contextsOnPage) != test.expected {
 			t.Errorf("%v: expected %d contexts on page, got %d\n", test, len(*contextsOnPage), test.expected)
+		}
+	}
+}
+
+func TestInvalidCurPageReturnsError(t *testing.T) {
+	var tests = []int{0, -1, -50}
+
+	for _, test := range tests {
+		expectedErr := fmt.Errorf("expected current page to be > 0, got %d", test)
+		paginationContext, err := buildPaginationContext([]string{}, test, 1)
+
+		if paginationContext != nil {
+			t.Errorf("%d: expected pagination context to be nil, got %v", test, paginationContext)
+		} else if err == nil || err.Error() != expectedErr.Error() {
+			t.Errorf("%d: expected error %q, got %q", test, expectedErr, err)
+		}
+	}
+}
+
+func TestInvalidNumPerPageReturnsError(t *testing.T) {
+	var tests = []int{0, -7, -200}
+
+	for _, test := range tests {
+		expectedErr := fmt.Errorf("expected number of items per page to be > 0, got %d", test)
+		paginationContext, err := buildPaginationContext([]string{}, 1, test)
+
+		if paginationContext != nil {
+			t.Errorf("%d: expected pagination context to be nil, got %v", test, paginationContext)
+		} else if err == nil || err.Error() != expectedErr.Error() {
+			t.Errorf("%d: expected error %q, got %q", test, expectedErr, err)
 		}
 	}
 }
