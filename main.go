@@ -228,17 +228,8 @@ func templatePipeline(ctx context.Context, templateFile *os.File, curPage int) [
 		cacheKey = cacheKey[1:]
 	}
 
-	doneChan := make(chan error)
-	go func(templateCache *parser.TemplateCache, cacheKey string) {
-		defer close(doneChan)
-		defer templateFile.Close()
-
-		for node := range nodeChan {
-			templateCache.Insert(cacheKey, node)
-		}
-	}(templateCache, cacheKey)
-
-	return []<-chan error{lexErrChan, parserErrChan, doneChan}
+	cacherErrs := processor.CacheTemplateResults(nodeChan, templateCache, cacheKey)
+	return []<-chan error{lexErrChan, parserErrChan, cacherErrs}
 }
 
 func fullPipeline(ctx context.Context, contentFile *os.File, numPages int) []<-chan error {
