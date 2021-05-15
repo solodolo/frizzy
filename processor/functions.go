@@ -50,7 +50,7 @@ func PaginateRaw(args ...Result) (Result, error) {
 	}
 
 	contentPaths := file.GetContentPaths(filePathString)
-	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt), nil
+	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt)
 }
 
 func TemplateRaw(args ...Result) (Result, error) {
@@ -62,7 +62,7 @@ func TemplateRaw(args ...Result) (Result, error) {
 	if len(args) != 1 {
 		err = fmt.Errorf("`template` expects one argument, got %d", len(args))
 	} else if templatePath, ok := args[0].(StringResult); !ok {
-		err = fmt.Errorf("invalid template argument %s\n", args[0])
+		err = fmt.Errorf("invalid template argument %s", args[0])
 	} else {
 		ret = Template(string(templatePath))
 	}
@@ -70,8 +70,12 @@ func TemplateRaw(args ...Result) (Result, error) {
 	return ret, err
 }
 
-func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) Result {
-	paginationContext := buildPaginationContext(contentPaths, curPage, numPerPage)
+func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) (Result, error) {
+	paginationContext, err := buildPaginationContext(contentPaths, curPage, numPerPage)
+
+	if err != nil {
+		return nil, err
+	}
 
 	templateCache := parser.GetTemplateCache()
 	templateNodes := templateCache.Get(templatePath)
@@ -83,41 +87,45 @@ func Paginate(contentPaths []string, templatePath string, curPage int, numPerPag
 		output += result.String()
 	}
 
-	return StringResult(output)
+	return StringResult(output), nil
 }
 
-func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) *Context {
-	if numPerPage < 1 || curPage < 1 {
-		return nil
+func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) (*Context, error) {
+	var (
+		pageContext *Context
+		err         error
+	)
+
+	if numPerPage < 1 {
+		err = fmt.Errorf("expected number of items per page to be > 0, got %d", numPerPage)
+	} else if curPage < 1 {
+		err = fmt.Errorf("expected current page to be > 0, got %d", curPage)
+	} else {
+		numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
+		exportStore := GetExportStore()
+		// create a page context
+		pageContext = &Context{
+			"curPage":  &ContextNode{result: IntResult(curPage)},
+			"numPages": &ContextNode{result: IntResult(numPages)},
+		}
+
+		// get the paths of the content files that will be on this page
+		offset := minInt(len(contentPaths), (curPage-1)*numPerPage)
+		last := minInt(len(contentPaths), offset+numPerPage)
+		contentPathsOnPage := contentPaths[offset:last]
+
+		// get the context for each content file on this page
+		contextsOnPage := &Context{}
+		for i, contentPath := range contentPathsOnPage {
+			// key content like an array
+			key := strconv.Itoa(i)
+			(*contextsOnPage)[key] = &ContextNode{child: exportStore.Get(contentPath)}
+		}
+
+		// add content file contexts to pageContext
+		(*pageContext)["content"] = &ContextNode{child: contextsOnPage}
 	}
-
-	numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
-	exportStore := GetExportStore()
-	// create a page context
-	pageContext := &Context{
-		"curPage":  &ContextNode{result: IntResult(curPage)},
-		"numPages": &ContextNode{result: IntResult(numPages)},
-		"prevPage": &ContextNode{result: StringResult("")},
-		"nextPage": &ContextNode{result: StringResult("")},
-	}
-
-	// get the paths of the content files that will be on this page
-	offset := minInt(len(contentPaths), (curPage-1)*numPerPage)
-	last := minInt(len(contentPaths), offset+numPerPage)
-	contentPathsOnPage := contentPaths[offset:last]
-
-	// get the context for each content file on this page
-	contextsOnPage := &Context{}
-	for i, contentPath := range contentPathsOnPage {
-		// key content like an array
-		key := strconv.Itoa(i)
-		(*contextsOnPage)[key] = &ContextNode{child: exportStore.Get(contentPath)}
-	}
-
-	// add content file contexts to pageContext
-	(*pageContext)["content"] = &ContextNode{child: contextsOnPage}
-
-	return pageContext
+	return pageContext, err
 }
 
 func Template(templatePath string) Result {
