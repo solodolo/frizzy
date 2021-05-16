@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
@@ -72,16 +71,51 @@ func PagesBeforeRaw(args ...Result) (Result, error) {
 	if inputPath, ok := args[1].(StringResult); ok {
 		inputPathStr = string(inputPath)
 	} else {
-		return nil, fmt.Errorf("expected input path to be a string, got %T", args[0])
+		return nil, fmt.Errorf("expected input path to be a string, got %T", args[1])
 	}
 
 	if numBefore, ok := args[2].(IntResult); ok {
 		numBeforeInt = int(numBefore)
 	} else {
-		return nil, fmt.Errorf("expected num before to be an int, got %T", args[0])
+		return nil, fmt.Errorf("expected num before to be an int, got %T", args[2])
 	}
 
 	return PagesBefore(curPageInt, numBeforeInt, inputPathStr)
+}
+
+func PagesAfterRaw(args ...Result) (Result, error) {
+	if len(args) < 4 {
+		return nil, fmt.Errorf("pages after exepects 4 args, got %d", len(args))
+	}
+
+	var curPageInt, numPagesInt, numAfterInt int
+	var inputPathStr string
+
+	if curPage, ok := args[0].(IntResult); ok {
+		curPageInt = int(curPage)
+	} else {
+		return nil, fmt.Errorf("expected current page to be an int, got %T", args[0])
+	}
+
+	if numPages, ok := args[1].(IntResult); ok {
+		numPagesInt = int(numPages)
+	} else {
+		return nil, fmt.Errorf("expected num pages to be an int, got %T", args[1])
+	}
+
+	if inputPath, ok := args[2].(StringResult); ok {
+		inputPathStr = string(inputPath)
+	} else {
+		return nil, fmt.Errorf("expected input path to be a string, got %T", args[2])
+	}
+
+	if numAfter, ok := args[3].(IntResult); ok {
+		numAfterInt = int(numAfter)
+	} else {
+		return nil, fmt.Errorf("expected num after to be an int, got %T", args[3])
+	}
+
+	return PagesAfter(curPageInt, numPagesInt, numAfterInt, inputPathStr)
 }
 
 func TemplateRaw(args ...Result) (Result, error) {
@@ -112,7 +146,7 @@ func Paginate(contentPaths []string, templatePath string, curPage int, numPerPag
 	templateNodes := templateCache.Get(templatePath)
 
 	output := ""
-	processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil)
+	processor := NewNodeProcessor(templatePath, paginationContext, nil, nil, nil, 0, 0)
 	for _, node := range *templateNodes {
 		result, _ := processor.processHeadNode(node)
 		output += result.String()
@@ -149,7 +183,7 @@ func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) 
 		contextsOnPage := &Context{}
 		for i, contentPath := range contentPathsOnPage {
 			// key content like an array
-			key := strconv.Itoa(i)
+			key := fmt.Sprint(i)
 			(*contextsOnPage)[key] = &ContextNode{child: exportStore.Get(contentPath)}
 		}
 
@@ -164,18 +198,33 @@ func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) 
 // These can be iterated through to create pagination links
 func PagesBefore(curPage, numBefore int, inputPath string) (ContainerResult, error) {
 	ctx := &Context{}
-
 	prevPage := maxInt((curPage - numBefore), 1)
 
 	for ; prevPage < curPage; prevPage++ {
 		prevCtx := &Context{}
-		(*prevCtx)["_prevPage"] = &ContextNode{result: IntResult(prevPage)}
-		(*prevCtx)["_prevHref"] = &ContextNode{
+		(*prevCtx)["_pageNum"] = &ContextNode{result: IntResult(prevPage)}
+		(*prevCtx)["_pageHref"] = &ContextNode{
 			result: StringResult(GetMarkdownOutputPath(inputPath, prevPage)),
 		}
 
 		key := fmt.Sprint(prevPage)
 		(*ctx)[key] = &ContextNode{child: prevCtx}
+	}
+
+	return ContainerResult{context: ctx}, nil
+}
+
+func PagesAfter(curPage, numPages, numAfter int, inputPath string) (ContainerResult, error) {
+	ctx := &Context{}
+	endPage := minInt(numPages, curPage+numAfter)
+
+	for nextPage := curPage + 1; nextPage <= endPage; nextPage++ {
+		nextCtx := &Context{}
+		(*nextCtx)["_pageNum"] = &ContextNode{result: IntResult(nextPage)}
+		(*nextCtx)["_pageHref"] = &ContextNode{result: StringResult(GetMarkdownOutputPath(inputPath, nextPage))}
+
+		key := fmt.Sprint(nextPage)
+		(*ctx)[key] = &ContextNode{child: nextCtx}
 	}
 
 	return ContainerResult{context: ctx}, nil
