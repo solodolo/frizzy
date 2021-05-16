@@ -53,6 +53,37 @@ func PaginateRaw(args ...Result) (Result, error) {
 	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt)
 }
 
+// PagesBeforeRaw converts the Result type arguments to PagesRaw
+// into the actual types that PagesRaw expects
+func PagesBeforeRaw(args ...Result) (Result, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("pages before expects 3 args, got %d", len(args))
+	}
+
+	var curPageInt, numBeforeInt int
+	var inputPathStr string
+
+	if curPage, ok := args[0].(IntResult); ok {
+		curPageInt = int(curPage)
+	} else {
+		return nil, fmt.Errorf("expected current page to be an int, got %T", args[0])
+	}
+
+	if inputPath, ok := args[1].(StringResult); ok {
+		inputPathStr = string(inputPath)
+	} else {
+		return nil, fmt.Errorf("expected input path to be a string, got %T", args[0])
+	}
+
+	if numBefore, ok := args[2].(IntResult); ok {
+		numBeforeInt = int(numBefore)
+	} else {
+		return nil, fmt.Errorf("expected num before to be an int, got %T", args[0])
+	}
+
+	return PagesBefore(curPageInt, numBeforeInt, inputPathStr)
+}
+
 func TemplateRaw(args ...Result) (Result, error) {
 	var (
 		ret Result
@@ -128,6 +159,28 @@ func buildPaginationContext(contentPaths []string, curPage int, numPerPage int) 
 	return pageContext, err
 }
 
+// PagesBefore builds a collection of contexts for the numBefore pages
+// prior to the current page
+// These can be iterated through to create pagination links
+func PagesBefore(curPage, numBefore int, inputPath string) (ContainerResult, error) {
+	ctx := &Context{}
+
+	prevPage := maxInt((curPage - numBefore), 1)
+
+	for ; prevPage < curPage; prevPage++ {
+		prevCtx := &Context{}
+		(*prevCtx)["_prevPage"] = &ContextNode{result: IntResult(prevPage)}
+		(*prevCtx)["_prevHref"] = &ContextNode{
+			result: StringResult(GetMarkdownOutputPath(inputPath, prevPage)),
+		}
+
+		key := fmt.Sprint(prevPage)
+		(*ctx)[key] = &ContextNode{child: prevCtx}
+	}
+
+	return ContainerResult{context: ctx}, nil
+}
+
 func Template(templatePath string) Result {
 	config := config.GetLoadedConfig()
 	fullPath := filepath.Join(config.GetTemplatePath(), templatePath)
@@ -147,6 +200,13 @@ func Template(templatePath string) Result {
 
 func minInt(a, b int) int {
 	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt(a, b int) int {
+	if a > b {
 		return a
 	}
 	return b

@@ -24,7 +24,7 @@ func (receiver *BuiltinFunctionModule) CallFunction(funcName string, funcArgs ..
 		return function(funcArgs...)
 	}
 
-	return nil, fmt.Errorf("function %s is not registered\n", funcName)
+	return nil, fmt.Errorf("function %s is not registered", funcName)
 }
 
 // NewBuiltinFunctionModule creates a BuiltinFunctionModule object
@@ -32,6 +32,7 @@ func (receiver *BuiltinFunctionModule) CallFunction(funcName string, funcArgs ..
 func NewBuiltinFunctionModule() *BuiltinFunctionModule {
 	module := &BuiltinFunctionModule{}
 	module.registerFunc("paginate", PaginateRaw)
+	module.registerFunc("pagesBefore", PagesBeforeRaw)
 	module.registerFunc("template", TemplateRaw)
 
 	return module

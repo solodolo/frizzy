@@ -219,10 +219,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		processedArgs := []Result{}
 		args := typedNode.GetArgs()
 
-		if funcName == "paginate" {
+		if funcName == "paginate" || funcName == "pagesBefore" {
 			if curPage, ok := receiver.Context.At("curPage"); ok {
 				processedArgs = append(processedArgs, curPage.result)
 			}
+		}
+
+		if funcName == "pagesBefore" {
+			inputPath := receiver.ExportStore.GetNamespace()
+			processedArgs = append(processedArgs, StringResult(inputPath))
 		}
 
 		for _, arg := range args {
