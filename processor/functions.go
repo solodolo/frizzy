@@ -13,6 +13,8 @@ import (
 	"mettlach.codes/frizzy/parser"
 )
 
+// PaginateRaw converts its Result type arguments into
+// the actual types that Paginate expects
 func PaginateRaw(args ...Result) (Result, error) {
 	if len(args) < 4 {
 		return nil, fmt.Errorf("paginate expects 4 args, got %d", len(args))
@@ -52,8 +54,8 @@ func PaginateRaw(args ...Result) (Result, error) {
 	return Paginate(contentPaths, templatePathString, curPageInt, numPerPageInt)
 }
 
-// PagesBeforeRaw converts the Result type arguments to PagesRaw
-// into the actual types that PagesRaw expects
+// PagesBeforeRaw converts its Result type arguments into
+// the actual types that PagesBefore expects
 func PagesBeforeRaw(args ...Result) (Result, error) {
 	if len(args) < 3 {
 		return nil, fmt.Errorf("pages before expects 3 args, got %d", len(args))
@@ -83,6 +85,8 @@ func PagesBeforeRaw(args ...Result) (Result, error) {
 	return PagesBefore(curPageInt, numBeforeInt, inputPathStr)
 }
 
+// PagesAfterRaw converts its Result type arguments into
+// the actual types that PagesAfter expects
 func PagesAfterRaw(args ...Result) (Result, error) {
 	if len(args) < 4 {
 		return nil, fmt.Errorf("pages after exepects 4 args, got %d", len(args))
@@ -135,6 +139,7 @@ func TemplateRaw(args ...Result) (Result, error) {
 	return ret, err
 }
 
+// Paginate creates a context with pagination data to be passed to the specified template
 func Paginate(contentPaths []string, templatePath string, curPage int, numPerPage int) (Result, error) {
 	paginationContext, err := buildPaginationContext(contentPaths, curPage, numPerPage)
 
@@ -214,6 +219,9 @@ func PagesBefore(curPage, numBefore int, inputPath string) (ContainerResult, err
 	return ContainerResult{context: ctx}, nil
 }
 
+// PagesAfter builds a collection of contexts for the numAfter pages
+// after the current page
+// These can be iterated through to create pagination links
 func PagesAfter(curPage, numPages, numAfter int, inputPath string) (ContainerResult, error) {
 	ctx := &Context{}
 	endPage := minInt(numPages, curPage+numAfter)
@@ -230,6 +238,8 @@ func PagesAfter(curPage, numPages, numAfter int, inputPath string) (ContainerRes
 	return ContainerResult{context: ctx}, nil
 }
 
+// Template loads the content of the specified file
+// and returns it as a StringResult
 func Template(templatePath string) Result {
 	config := config.GetLoadedConfig()
 	fullPath := filepath.Join(config.GetTemplatePath(), templatePath)
