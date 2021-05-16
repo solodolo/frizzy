@@ -91,29 +91,31 @@ func clearOutputDirectory(outputDir string) error {
 	return os.RemoveAll(outputDir)
 }
 
-func getPaginationInfo(file *os.File) (string, int, bool) {
+func getNumPages(inputFile *os.File) (int, bool) {
 	var (
-		contentPath string
-		numPerPage  int
-		ok          bool = true
+		numPages int
+		ok       bool = true
 	)
 
 	paginationRegex := regexp.MustCompile(`[{{|{{:]\s*paginate\(("[^"]+"),\s*("[^"]+"),\s*(\d+)\)\s*}}`)
-	if bytes, err := io.ReadAll(file); err != nil {
+	if bytes, err := io.ReadAll(inputFile); err != nil {
 		ok = false
 	} else if found := paginationRegex.FindSubmatch(bytes); found != nil {
-		contentPath = strings.ReplaceAll(string(found[1]), "\"", "")
-		if numPerPage, err = strconv.Atoi(string(found[3])); err != nil {
+		contentPath := strings.ReplaceAll(string(found[1]), "\"", "")
+		if numPerPage, err := strconv.Atoi(string(found[3])); err != nil {
 			ok = false
+		} else {
+			contentPaths := file.GetContentPaths(contentPath)
+			numPages = int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
 		}
 	} else {
 		ok = false
 	}
 
-	return contentPath, numPerPage, ok
+	return numPages, ok
 }
 
-func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File, int) []<-chan error) error {
+func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File) []<-chan error) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -137,16 +139,7 @@ func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File,
 			continue
 		}
 
-		contentPath, numPerPage, ok := getPaginationInfo(f)
-		f.Seek(0, 0)
-
-		if ok {
-			contentPaths := file.GetContentPaths(contentPath)
-			numPages := int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
-			errChans = append(errChans, handler(ctx, f, numPages)...)
-		} else {
-			errChans = append(errChans, handler(ctx, f, -1)...)
-		}
+		errChans = append(errChans, handler(ctx, f)...)
 	}
 
 	errChan := mergeErrChans(ctx, errChans)
@@ -215,7 +208,7 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 	return pathChan, errChan
 }
 
-func templatePipeline(ctx context.Context, templateFile *os.File, curPage int) []<-chan error {
+func templatePipeline(ctx context.Context, templateFile *os.File) []<-chan error {
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
@@ -232,30 +225,33 @@ func templatePipeline(ctx context.Context, templateFile *os.File, curPage int) [
 	return []<-chan error{lexErrChan, parserErrChan, cacherErrs}
 }
 
-func fullPipeline(ctx context.Context, contentFile *os.File, numPages int) []<-chan error {
+func fullPipeline(ctx context.Context, contentFile *os.File) []<-chan error {
+	numPages, paginated := getNumPages(contentFile)
+	// Rewind the file so it can be lexed from the start
+	contentFile.Seek(0, 0)
+
 	inputPath := contentFile.Name()
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(contentFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
 
-	if numPages > 0 {
+	if paginated {
 		// fan out node chan to processors for each page
 		nodeChans := fanOutNodes(nodeChan, numPages)
-		// nodeChans := []<-chan parser.TreeNode{nodeChan}
 		// processor and renderer chans for each page plus
 		// lexer and parser err chans
 		pagedErrChans := make([]<-chan error, 0, numPages*2+2)
 
 		for i, fannedNodeChan := range nodeChans {
 			curPage := i + 1
-			processorErrChan, _ := processAndRender(ctx, inputPath, fannedNodeChan, curPage)
+			processorErrChan, _ := processAndRender(ctx, inputPath, fannedNodeChan, curPage, numPages)
 			pagedErrChans = append(pagedErrChans, processorErrChan)
 		}
 
 		pagedErrChans = append(pagedErrChans, lexErrChan, parserErrChan)
 		return pagedErrChans
 	} else {
-		processorErrChan, _ := processAndRender(ctx, inputPath, nodeChan, 0)
+		processorErrChan, _ := processAndRender(ctx, inputPath, nodeChan, 0, 0)
 		return []<-chan error{lexErrChan, parserErrChan, processorErrChan}
 	}
 }
@@ -283,10 +279,8 @@ func fanOutNodes(nodeChan <-chan parser.TreeNode, numPages int) []chan parser.Tr
 	return nodeChanFan
 }
 
-func processAndRender(ctx context.Context, inputPath string, nodeChan <-chan parser.TreeNode, curPage int) (<-chan error, <-chan error) {
-	processorCtx := &processor.Context{}
-	processorCtx.Insert([]string{"curPage"}, processor.IntResult(curPage))
-	nodeProcessor := processor.NewNodeProcessor(inputPath, processorCtx, nil, nil, nil)
+func processAndRender(ctx context.Context, inputPath string, nodeChan <-chan parser.TreeNode, curPage, numPages int) (<-chan error, <-chan error) {
+	nodeProcessor := processor.NewNodeProcessor(inputPath, nil, nil, nil, nil, curPage, numPages)
 
 	outputPath := processor.GetMarkdownOutputPath(inputPath, curPage)
 	nodeProcessor.ExportStore.Insert([]string{"_href"}, processor.StringResult(outputPath))
