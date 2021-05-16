@@ -18,6 +18,8 @@ type NodeProcessor struct {
 	PathReader     file.GetPathFunc
 	ExportStore    ExportStorage
 	FunctionModule FunctionModule
+	CurPage        int
+	NumPages       int
 }
 
 func NewNodeProcessor(
@@ -26,17 +28,24 @@ func NewNodeProcessor(
 	pathReader file.GetPathFunc,
 	exportStore ExportStorage,
 	funcModule FunctionModule,
+	curPage int,
+	numPages int,
 ) *NodeProcessor {
 	processor := &NodeProcessor{
 		Context:        context,
 		PathReader:     pathReader,
 		ExportStore:    exportStore,
 		FunctionModule: funcModule,
+		CurPage:        curPage,
+		NumPages:       numPages,
 	}
 
 	if context == nil {
 		processor.Context = &Context{}
 	}
+
+	processor.Context.Insert([]string{"curPage"}, IntResult(curPage))
+	processor.Context.Insert([]string{"numPages"}, IntResult(numPages))
 
 	if pathReader == nil {
 		processor.PathReader = file.GetContentPaths
@@ -219,13 +228,15 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		processedArgs := []Result{}
 		args := typedNode.GetArgs()
 
-		if funcName == "paginate" || funcName == "pagesBefore" {
-			if curPage, ok := receiver.Context.At("curPage"); ok {
-				processedArgs = append(processedArgs, curPage.result)
-			}
+		if funcName == "paginate" || funcName == "pagesBefore" || funcName == "pagesAfter" {
+			processedArgs = append(processedArgs, IntResult(receiver.CurPage))
 		}
 
-		if funcName == "pagesBefore" {
+		if funcName == "pagesAfter" {
+			processedArgs = append(processedArgs, IntResult(receiver.NumPages))
+		}
+
+		if funcName == "pagesBefore" || funcName == "pagesAfter" {
 			inputPath := receiver.ExportStore.GetNamespace()
 			processedArgs = append(processedArgs, StringResult(inputPath))
 		}
@@ -351,7 +362,7 @@ func (receiver *NodeProcessor) generateLoopBody(body parser.TreeNode, loopIdent 
 
 	for _, inputContext := range contexts {
 		(*merged)[loopIdent.Value] = &ContextNode{child: context.Merge(inputContext)}
-		loopProcessor := NewNodeProcessor(namespace, merged, nil, nil, nil)
+		loopProcessor := NewNodeProcessor(namespace, merged, nil, nil, nil, 0, 0)
 		bodyResult, _ := loopProcessor.processHeadNode(body)
 
 		bodyText += bodyResult.String()
