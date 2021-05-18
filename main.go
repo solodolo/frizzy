@@ -244,15 +244,15 @@ func fullPipeline(ctx context.Context, contentFile *os.File) []<-chan error {
 
 		for i, fannedNodeChan := range nodeChans {
 			curPage := i + 1
-			processorErrChan, _ := processAndRender(ctx, inputPath, fannedNodeChan, curPage, numPages)
-			pagedErrChans = append(pagedErrChans, processorErrChan)
+			processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, fannedNodeChan, curPage, numPages)
+			pagedErrChans = append(pagedErrChans, processorErrChan, rendererErrChan)
 		}
 
 		pagedErrChans = append(pagedErrChans, lexErrChan, parserErrChan)
 		return pagedErrChans
 	} else {
-		processorErrChan, _ := processAndRender(ctx, inputPath, nodeChan, 0, 0)
-		return []<-chan error{lexErrChan, parserErrChan, processorErrChan}
+		processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, nodeChan, 0, 0)
+		return []<-chan error{lexErrChan, parserErrChan, processorErrChan, rendererErrChan}
 	}
 }
 
