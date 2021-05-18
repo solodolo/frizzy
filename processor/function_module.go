@@ -29,12 +29,29 @@ func (receiver *BuiltinFunctionModule) CallFunction(funcName string, funcArgs ..
 
 // NewBuiltinFunctionModule creates a BuiltinFunctionModule object
 // populated with a mapping for each of the builtin functions
-func NewBuiltinFunctionModule() *BuiltinFunctionModule {
+func NewBuiltinFunctionModule(curPage, numPages, inputPath Result) *BuiltinFunctionModule {
 	module := &BuiltinFunctionModule{}
-	module.registerFunc("paginate", PaginateRaw)
-	module.registerFunc("pagesBefore", PagesBeforeRaw)
-	module.registerFunc("pagesAfter", PagesAfterRaw)
+
+	module.registerFunc("paginate",
+		paginationClosure(PaginateRaw, curPage),
+	)
+
+	module.registerFunc("pagesBefore",
+		paginationClosure(PagesBeforeRaw, curPage, inputPath),
+	)
+
+	module.registerFunc("pagesAfter",
+		paginationClosure(PagesAfterRaw, curPage, numPages, inputPath),
+	)
+
 	module.registerFunc("template", TemplateRaw)
 
 	return module
+}
+
+func paginationClosure(f func(...Result) (Result, error), prepend ...Result) func(...Result) (Result, error) {
+	return func(args ...Result) (Result, error) {
+		prepend = append(prepend, args...)
+		return f(prepend...)
+	}
 }

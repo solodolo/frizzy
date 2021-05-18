@@ -56,7 +56,11 @@ func NewNodeProcessor(
 	}
 
 	if funcModule == nil {
-		processor.FunctionModule = NewBuiltinFunctionModule()
+		processor.FunctionModule = NewBuiltinFunctionModule(
+			IntResult(curPage),
+			IntResult(numPages),
+			StringResult(filepath),
+		)
 	}
 
 	return processor
@@ -227,19 +231,6 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 
 		processedArgs := []Result{}
 		args := typedNode.GetArgs()
-
-		if funcName == "paginate" || funcName == "pagesBefore" || funcName == "pagesAfter" {
-			processedArgs = append(processedArgs, IntResult(receiver.CurPage))
-		}
-
-		if funcName == "pagesAfter" {
-			processedArgs = append(processedArgs, IntResult(receiver.NumPages))
-		}
-
-		if funcName == "pagesBefore" || funcName == "pagesAfter" {
-			inputPath := receiver.ExportStore.GetNamespace()
-			processedArgs = append(processedArgs, StringResult(inputPath))
-		}
 
 		for _, arg := range args {
 			argResult, err := receiver.processHeadNode(arg)
