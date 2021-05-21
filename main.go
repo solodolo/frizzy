@@ -1,23 +1,14 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"io"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
 
 	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
-	"mettlach.codes/frizzy/lexer"
-	"mettlach.codes/frizzy/parser"
-	"mettlach.codes/frizzy/processor"
+	"mettlach.codes/frizzy/pipeline"
 )
 
 func main() {
@@ -50,7 +41,7 @@ func main() {
 		pagesPathChan, _ := walkFiles(config.GetPagesPath())
 		// have to process templates first, then content, then pages
 		log.Println("pipelining template files")
-		if err := runPipeline(templatePathChan, templatePipeline); err != nil {
+		if err := pipeline.RunPipeline(templatePathChan, pipeline.TemplateCacheHandler); err != nil {
 			log.Println("exiting")
 			return
 		} else {
@@ -58,7 +49,7 @@ func main() {
 		}
 
 		log.Println("pipelining content files")
-		if err := runPipeline(contentPathChan, fullPipeline); err != nil {
+		if err := pipeline.RunPipeline(contentPathChan, pipeline.FullPipelineHandler); err != nil {
 			log.Println("exiting")
 			return
 		} else {
@@ -66,7 +57,7 @@ func main() {
 		}
 
 		log.Println("pipelining page files")
-		if err := runPipeline(pagesPathChan, fullPipeline); err != nil {
+		if err := pipeline.RunPipeline(pagesPathChan, pipeline.FullPipelineHandler); err != nil {
 			log.Println("exiting")
 			return
 		} else {
@@ -89,98 +80,6 @@ func printUsage() {
 
 func clearOutputDirectory(outputDir string) error {
 	return os.RemoveAll(outputDir)
-}
-
-func getNumPages(inputFile *os.File) (int, bool) {
-	var (
-		numPages int
-		ok       bool = true
-	)
-
-	paginationRegex := regexp.MustCompile(`[{{|{{:]\s*paginate\(("[^"]+"),\s*("[^"]+"),\s*(\d+)\)\s*}}`)
-	if bytes, err := io.ReadAll(inputFile); err != nil {
-		ok = false
-	} else if found := paginationRegex.FindSubmatch(bytes); found != nil {
-		contentPath := strings.ReplaceAll(string(found[1]), "\"", "")
-		if numPerPage, err := strconv.Atoi(string(found[3])); err != nil {
-			ok = false
-		} else {
-			contentPaths := file.GetContentPaths(contentPath)
-			numPages = int(math.Ceil(float64(len(contentPaths)) / float64(numPerPage)))
-		}
-	} else {
-		ok = false
-	}
-
-	return numPages, ok
-}
-
-func runPipeline(pathChan <-chan string, handler func(context.Context, *os.File) []<-chan error) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	errChans := []<-chan error{}
-	files := make([]*os.File, len(pathChan))
-
-	defer func() {
-		for _, f := range files {
-			f.Close()
-		}
-	}()
-
-	for inputPath := range pathChan {
-		log.Printf("    %s", inputPath)
-
-		f, err := os.Open(inputPath)
-		files = append(files, f)
-
-		if err != nil {
-			log.Printf("    pipeline error: failed to open %s, %s\n", inputPath, err)
-			continue
-		}
-
-		errChans = append(errChans, handler(ctx, f)...)
-	}
-
-	errChan := mergeErrChans(ctx, errChans)
-
-	for err := range errChan {
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func mergeErrChans(ctx context.Context, errChans []<-chan error) <-chan error {
-	wg := sync.WaitGroup{}
-	wg.Add(len(errChans))
-
-	errChan := make(chan error)
-
-	merge := func(idx int, ec <-chan error, errChans []<-chan error) {
-		defer wg.Done()
-		for err := range ec {
-			select {
-			case errChan <- err:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}
-
-	for i, ec := range errChans {
-		go merge(i, ec, errChans)
-	}
-
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	return errChan
 }
 
 func walkFiles(inputPath string) (<-chan string, <-chan error) {
@@ -206,87 +105,4 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 	}()
 
 	return pathChan, errChan
-}
-
-func templatePipeline(ctx context.Context, templateFile *os.File) []<-chan error {
-	lexer := lexer.Lexer{}
-	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
-	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
-
-	config := config.GetLoadedConfig()
-	templatePath := config.GetTemplatePath()
-	templateCache := parser.GetTemplateCache()
-	cacheKey := strings.TrimPrefix(templateFile.Name(), templatePath)
-	if cacheKey[0] == '/' {
-		cacheKey = cacheKey[1:]
-	}
-
-	cacherErrs := processor.CacheTemplateResults(nodeChan, templateCache, cacheKey)
-	return []<-chan error{lexErrChan, parserErrChan, cacherErrs}
-}
-
-func fullPipeline(ctx context.Context, contentFile *os.File) []<-chan error {
-	numPages, paginated := getNumPages(contentFile)
-	// Rewind the file so it can be lexed from the start
-	contentFile.Seek(0, 0)
-
-	inputPath := contentFile.Name()
-	lexer := lexer.Lexer{}
-	tokChan, lexErrChan := lexer.Lex(contentFile, ctx)
-	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
-
-	if paginated {
-		// fan out node chan to processors for each page
-		nodeChans := fanOutNodes(nodeChan, numPages)
-		// processor and renderer chans for each page plus
-		// lexer and parser err chans
-		pagedErrChans := make([]<-chan error, 0, numPages*2+2)
-
-		for i, fannedNodeChan := range nodeChans {
-			curPage := i + 1
-			processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, fannedNodeChan, curPage, numPages)
-			pagedErrChans = append(pagedErrChans, processorErrChan, rendererErrChan)
-		}
-
-		pagedErrChans = append(pagedErrChans, lexErrChan, parserErrChan)
-		return pagedErrChans
-	} else {
-		processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, nodeChan, 0, 0)
-		return []<-chan error{lexErrChan, parserErrChan, processorErrChan, rendererErrChan}
-	}
-}
-
-func fanOutNodes(nodeChan <-chan parser.TreeNode, numPages int) []chan parser.TreeNode {
-	nodeChanFan := make([]chan parser.TreeNode, numPages)
-	for i := range nodeChanFan {
-		nodeChanFan[i] = make(chan parser.TreeNode, 1)
-	}
-
-	go func() {
-		defer func() {
-			for _, fanNodeChan := range nodeChanFan {
-				close(fanNodeChan)
-			}
-		}()
-
-		for node := range nodeChan {
-			for _, fanChan := range nodeChanFan {
-				fanChan <- node
-			}
-		}
-	}()
-
-	return nodeChanFan
-}
-
-func processAndRender(ctx context.Context, inputPath string, nodeChan <-chan parser.TreeNode, curPage, numPages int) (<-chan error, <-chan error) {
-	nodeProcessor := processor.NewNodeProcessor(inputPath, nil, nil, nil, nil, curPage, numPages)
-
-	outputPath := processor.GetMarkdownOutputPath(inputPath, curPage)
-	nodeProcessor.ExportStore.Insert([]string{"_href"}, processor.StringResult(outputPath))
-	processorChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
-	resultChan := processor.PostProcessMarkdown(inputPath, processorChan)
-	rendererErrChan := processor.RenderHtmlResults(resultChan, outputPath)
-
-	return processorErrChan, rendererErrChan
 }
