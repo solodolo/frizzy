@@ -90,7 +90,7 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 		defer close(pathChan)
 		defer close(errChan)
 
-		errChan <- filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
+		walkErr := filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -102,6 +102,10 @@ func walkFiles(inputPath string) (<-chan string, <-chan error) {
 			pathChan <- path
 			return nil
 		})
+
+		if walkErr != nil {
+			errChan <- walkErr
+		}
 	}()
 
 	return pathChan, errChan
