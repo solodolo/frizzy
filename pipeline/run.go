@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-func RunPipeline(pathChan <-chan string, handler func(context.Context, *os.File) []<-chan error) error {
+func RunPipeline(pathChan <-chan string, handler func(context.Context, *os.File) <-chan error) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -31,7 +31,7 @@ func RunPipeline(pathChan <-chan string, handler func(context.Context, *os.File)
 			continue
 		}
 
-		errChans = append(errChans, handler(ctx, f)...)
+		errChans = append(errChans, handler(ctx, f))
 	}
 
 	errChan := mergeErrChans(ctx, errChans)
@@ -52,7 +52,7 @@ func mergeErrChans(ctx context.Context, errChans []<-chan error) <-chan error {
 
 	errChan := make(chan error)
 
-	merge := func(idx int, ec <-chan error, errChans []<-chan error) {
+	merge := func(idx int, ec <-chan error) {
 		defer wg.Done()
 		for err := range ec {
 			select {
@@ -64,7 +64,7 @@ func mergeErrChans(ctx context.Context, errChans []<-chan error) <-chan error {
 	}
 
 	for i, ec := range errChans {
-		go merge(i, ec, errChans)
+		go merge(i, ec)
 	}
 
 	go func() {

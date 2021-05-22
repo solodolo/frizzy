@@ -3,11 +3,13 @@ package pipeline
 import (
 	"context"
 	"io"
+	"log"
 	"math"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
@@ -16,7 +18,7 @@ import (
 	"mettlach.codes/frizzy/processor"
 )
 
-func TemplateCacheHandler(ctx context.Context, templateFile *os.File) []<-chan error {
+func TemplateCacheHandler(ctx context.Context, templateFile *os.File) <-chan error {
 	lexer := lexer.Lexer{}
 	tokChan, lexErrChan := lexer.Lex(templateFile, ctx)
 	nodeChan, parserErrChan := parser.Parse(tokChan, ctx)
@@ -30,7 +32,7 @@ func TemplateCacheHandler(ctx context.Context, templateFile *os.File) []<-chan e
 	}
 
 	cacherErrs := processor.CacheTemplateResults(nodeChan, templateCache, cacheKey)
-	return []<-chan error{lexErrChan, parserErrChan, cacherErrs}
+	return mergeIntoStandardErrs(ctx, templateFile.Name(), lexErrChan, parserErrChan, cacherErrs)
 }
 
 func getNumPages(inputFile *os.File) (int, bool) {
@@ -57,7 +59,7 @@ func getNumPages(inputFile *os.File) (int, bool) {
 	return numPages, ok
 }
 
-func FullPipelineHandler(ctx context.Context, contentFile *os.File) []<-chan error {
+func FullPipelineHandler(ctx context.Context, contentFile *os.File) <-chan error {
 	numPages, paginated := getNumPages(contentFile)
 	// Rewind the file so it can be lexed from the start
 	contentFile.Seek(0, 0)
@@ -81,11 +83,51 @@ func FullPipelineHandler(ctx context.Context, contentFile *os.File) []<-chan err
 		}
 
 		pagedErrChans = append(pagedErrChans, lexErrChan, parserErrChan)
-		return pagedErrChans
+		return mergeIntoStandardErrs(ctx, contentFile.Name(), pagedErrChans...)
 	} else {
 		processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, nodeChan, 0, 0)
-		return []<-chan error{lexErrChan, parserErrChan, processorErrChan, rendererErrChan}
+		return mergeIntoStandardErrs(
+			ctx,
+			contentFile.Name(),
+			lexErrChan,
+			parserErrChan,
+			processorErrChan,
+			rendererErrChan,
+		)
 	}
+}
+
+func mergeIntoStandardErrs(ctx context.Context, filename string, errChans ...<-chan error) <-chan error {
+	wg := sync.WaitGroup{}
+	wg.Add(len(errChans))
+
+	errChan := make(chan error)
+
+	merge := func(idx int, ec <-chan error) {
+		defer wg.Done()
+		for err := range ec {
+			if err == nil {
+				log.Println(ec)
+			}
+			stdErr := &StandardError{Filename: filename, Message: err.Error()}
+			select {
+			case errChan <- stdErr:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+
+	for i, ec := range errChans {
+		go merge(i, ec)
+	}
+
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	return errChan
 }
 
 func fanOutNodes(nodeChan <-chan parser.TreeNode, numPages int) []chan parser.TreeNode {
