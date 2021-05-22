@@ -63,11 +63,8 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 	lineChan, lineErrChan := readLines(inputBuffer, ctx)
 
 	tokChan := make(chan []Token)
-	tokErrChan := make(chan error)
-
 	go func() {
 		defer close(tokChan)
-		defer close(tokErrChan)
 
 		lineNum := 0
 		for line := range lineChan {
@@ -85,21 +82,7 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 		tokChan <- []Token{EOLTok}
 	}()
 
-	lexerErrChan := make(chan error, 1)
-
-	go func() {
-		defer close(lexerErrChan)
-
-		select {
-		case err := <-lineErrChan:
-			lexerErrChan <- err
-		case err := <-tokErrChan:
-			lexerErrChan <- err
-		}
-		return
-	}()
-
-	return tokChan, lexerErrChan
+	return tokChan, lineErrChan
 }
 
 func splitLinesKeepNL(data []byte, atEOF bool) (advance int, token []byte, err error) {
