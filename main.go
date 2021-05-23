@@ -4,7 +4,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"path/filepath"
 
 	"mettlach.codes/frizzy/config"
 	"mettlach.codes/frizzy/file"
@@ -36,9 +35,9 @@ func main() {
 			}
 		}
 
-		templatePathChan, _ := walkFiles(config.GetTemplatePath())
-		contentPathChan, _ := walkFiles(config.GetContentPath())
-		pagesPathChan, _ := walkFiles(config.GetPagesPath())
+		templatePathChan, _ := pipeline.WalkFiles(config.GetTemplatePath())
+		contentPathChan, _ := pipeline.WalkFiles(config.GetContentPath())
+		pagesPathChan, _ := pipeline.WalkFiles(config.GetPagesPath())
 		// have to process templates first, then content, then pages
 		log.Println("pipelining template files")
 		if err := pipeline.RunPipeline(templatePathChan, pipeline.TemplateCacheHandler); err != nil {
@@ -80,33 +79,4 @@ func printUsage() {
 
 func clearOutputDirectory(outputDir string) error {
 	return os.RemoveAll(outputDir)
-}
-
-func walkFiles(inputPath string) (<-chan string, <-chan error) {
-	pathChan := make(chan string)
-	errChan := make(chan error, 1)
-
-	go func() {
-		defer close(pathChan)
-		defer close(errChan)
-
-		walkErr := filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			// ignore nested dirs for now
-			if info.IsDir() {
-				return nil
-			}
-
-			pathChan <- path
-			return nil
-		})
-
-		if walkErr != nil {
-			errChan <- walkErr
-		}
-	}()
-
-	return pathChan, errChan
 }

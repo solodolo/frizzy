@@ -4,8 +4,38 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 )
+
+func WalkFiles(inputPath string) (<-chan string, <-chan error) {
+	pathChan := make(chan string)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(pathChan)
+		defer close(errChan)
+
+		walkErr := filepath.WalkDir(inputPath, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			// ignore nested dirs for now
+			if d.IsDir() {
+				return nil
+			}
+
+			pathChan <- path
+			return nil
+		})
+
+		if walkErr != nil {
+			errChan <- walkErr
+		}
+	}()
+
+	return pathChan, errChan
+}
 
 func RunPipeline(pathChan <-chan string, handler func(context.Context, *os.File) <-chan error) error {
 	ctx, cancel := context.WithCancel(context.Background())
