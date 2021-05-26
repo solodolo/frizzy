@@ -13,6 +13,10 @@ func (receiver *FuncCallParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *FuncCallParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetFuncName returns the name of the function that
 // this node represents
 func (receiver *FuncCallParseNode) GetFuncName() string {
@@ -20,13 +24,11 @@ func (receiver *FuncCallParseNode) GetFuncName() string {
 	return nameNode.Value
 }
 
-func (receiver *FuncCallParseNode) getArgNode() *ArgsParseNode {
-	return receiver.children[2].(*ArgsParseNode)
-}
-
 // GetArgs returns a slice of nodes representing the arguments
 // to this function
 func (receiver *FuncCallParseNode) GetArgs() []TreeNode {
-	argNode := receiver.getArgNode()
-	return argNode.GetArguments()
+	if argsList, ok := receiver.children[2].(*ArgsListParseNode); ok {
+		return argsList.GetArguments()
+	}
+	return []TreeNode{receiver.children[2]}
 }

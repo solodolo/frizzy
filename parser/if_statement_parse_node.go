@@ -24,6 +24,10 @@ func (receiver *IfStatementParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *IfStatementParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetIfConditional returns the child if statement conditional
 func (receiver *IfStatementParseNode) GetIfConditional() TreeNode {
 	return receiver.children[1]

@@ -10,6 +10,10 @@ func (receiver *ArgsParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *ArgsParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetArguments returns an array of nodes representing the arguments
 // from left to right
 // Return will be empty if no arguments are present

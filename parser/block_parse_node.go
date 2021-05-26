@@ -12,6 +12,10 @@ func (node *BlockParseNode) String() string {
 	return fmt.Sprintf("%T", *node)
 }
 
+func (node *BlockParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetContent returns the TreeNode representing the
 // content that should be output in the final template
 func (receiver *BlockParseNode) GetContent() TreeNode {

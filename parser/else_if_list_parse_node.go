@@ -20,6 +20,10 @@ func (receiver *ElseIfListParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *ElseIfListParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetConditionals returns the true/false statements inside of this
 // and each nested else_if block
 func (receiver *ElseIfListParseNode) GetConditionals() []TreeNode {

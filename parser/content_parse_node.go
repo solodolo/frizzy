@@ -6,9 +6,12 @@ import "fmt"
 // other ContentParseNodes, passthrough values, or blocks
 type ContentParseNode struct {
 	ParseNode
-	flattenedChildren []*ContentParseNode
 }
 
 func (receiver *ContentParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
+}
+
+func (node *ContentParseNode) IsTerminal() bool {
+	return false
 }

@@ -16,6 +16,10 @@ func (receiver *ForLoopParseNode) String() string {
 	return fmt.Sprintf("%T", receiver)
 }
 
+func (node *ForLoopParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetLoopIdent returns the loop identifier
 // Given {{for foo in bar}}, returns TreeNode{foo}
 func (receiver *ForLoopParseNode) GetLoopIdent() TreeNode {

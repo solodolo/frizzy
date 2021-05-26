@@ -12,17 +12,17 @@ func (receiver *ArgsListParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *ArgsListParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetArguments returns an array of nodes representing the arguments
 // from left to right
 func (receiver *ArgsListParseNode) GetArguments() []TreeNode {
-	flat := receiver.GetFlattenedChildren()
-	args := make([]TreeNode, len(flat))
-
-	for i, child := range flat {
-		args[i] = child.getArg()
+	if nestedArgsList, ok := receiver.children[0].(*ArgsListParseNode); ok {
+		return append(nestedArgsList.GetArguments(), receiver.children[2])
 	}
-
-	return args
+	return []TreeNode{receiver.children[0], receiver.children[2]}
 }
 
 // GetFlattenedChildren returns the ArgsListParseNode children of

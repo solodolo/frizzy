@@ -14,17 +14,34 @@ func (receiver *VarNameParseNode) String() string {
 	return fmt.Sprintf("%T", *receiver)
 }
 
+func (node *VarNameParseNode) IsTerminal() bool {
+	return false
+}
+
 // GetVarNameParts returns an array of string ident names represented
 // by this VarNameParseNode tree
 // e.g. "foo" will return ["foo"] and "foo.bar" will return ["foo", "bar"]
 func (receiver *VarNameParseNode) GetVarNameParts() []string {
-	flattened := receiver.GetFlattenedChildren()
-	nameParts := make([]string, 0, len(flattened))
+	first := receiver.children[0].(*IdentParseNode).Value
 
-	for _, child := range flattened {
-		nameParts = append(nameParts, child.getIdentifierName())
+	if len(receiver.children) < 2 {
+		return []string{first}
 	}
-	return nameParts
+
+	nestedVarName, ok := receiver.children[len(receiver.children)-1].(*VarNameParseNode)
+	if ok {
+		return append([]string{first}, nestedVarName.GetVarNameParts()...)
+	}
+
+	second := receiver.children[2].(*IdentParseNode).Value
+	return []string{first, second}
+	// flattened := receiver.GetFlattenedChildren()
+	// nameParts := make([]string, 0, len(flattened))
+
+	// for _, child := range flattened {
+	// 	nameParts = append(nameParts, child.getIdentifierName())
+	// }
+	// return nameParts
 }
 
 // GetFlattenedChildren returns an array of nested VarNameParseNodes starting

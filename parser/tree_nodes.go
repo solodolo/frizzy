@@ -8,6 +8,7 @@ type TreeNode interface {
 	GetChildren() []TreeNode
 	PrintTree()
 	SetChildren(children []TreeNode)
+	IsTerminal() bool
 	fmt.Stringer
 }
 
@@ -33,6 +34,10 @@ func (node *ParseNode) PrintTree() {
 	for _, str := range treeStrs {
 		fmt.Println(str)
 	}
+}
+
+func (node *ParseNode) IsTerminal() bool {
+	return false
 }
 
 func genTreeStr(node TreeNode, level int, lastChild bool) []string {
@@ -76,6 +81,10 @@ func (node NonTerminalParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
 }
 
+func (node NonTerminalParseNode) IsTerminal() bool {
+	return false
+}
+
 // TODO: Remove these IsFoo() checks and create node types for each
 func (node NonTerminalParseNode) IsAssignment() bool {
 	return node.Value == "expression" && len(node.children) > 1
@@ -110,6 +119,10 @@ func (node StringParseNode) String() string {
 	return fmt.Sprintf("%T: %q", node, node.Value)
 }
 
+func (node StringParseNode) IsTerminal() bool {
+	return true
+}
+
 type NumParseNode struct {
 	Value int
 	ParseNode
@@ -117,6 +130,10 @@ type NumParseNode struct {
 
 func (node NumParseNode) String() string {
 	return fmt.Sprintf("%T: %d", node, node.Value)
+}
+
+func (node NumParseNode) IsTerminal() bool {
+	return true
 }
 
 type BoolParseNode struct {
@@ -128,6 +145,10 @@ func (node BoolParseNode) String() string {
 	return fmt.Sprintf("%T: %t", node, node.Value)
 }
 
+func (node BoolParseNode) IsTerminal() bool {
+	return true
+}
+
 type IdentParseNode struct {
 	Value string
 	ParseNode
@@ -137,6 +158,10 @@ func (node IdentParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
 }
 
+func (node IdentParseNode) IsTerminal() bool {
+	return true
+}
+
 type SymbolParseNode struct {
 	Value string
 	ParseNode
@@ -144,4 +169,8 @@ type SymbolParseNode struct {
 
 func (node SymbolParseNode) String() string {
 	return fmt.Sprintf("%T: %s", node, node.Value)
+}
+
+func (node SymbolParseNode) IsTerminal() bool {
+	return true
 }
