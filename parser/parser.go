@@ -155,13 +155,19 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 	// Push goto state on top of stack
 	*stateStack = append(*stateStack, gotoState)
 
-	if numToPop > 1 || (*nodeStack)[len(*nodeStack)-numToPop].IsTerminal() {
+	isTerminal := false
+	if numToPop == 1 {
+		isTerminal = (*nodeStack)[len(*nodeStack)-numToPop].IsTerminal()
+	}
+
+	node := getNonTerminalNodeForReduction(left)
+
+	if numToPop != 1 || isTerminal {
 		// Stack symbols that will be popped become children of new node
 		children := make([]TreeNode, numToPop)
 		copy(children, (*nodeStack)[len(*nodeStack)-numToPop:])
 
 		// Create non-terminal
-		node := getNonTerminalNodeForReduction(left)
 		node.SetChildren(children)
 
 		// Actually pop symbols
