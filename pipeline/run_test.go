@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"os"
 	"testing"
 
 	"mettlach.codes/frizzy/config"
@@ -12,7 +11,6 @@ var testConfig *config.Config
 func TestMain(m *testing.M) {
 	testConfig, _ = config.LoadConfig("../test_files/test_config.json")
 	m.Run()
-	teardown()
 }
 
 func BenchmarkTestRun(b *testing.B) {
@@ -23,12 +21,8 @@ func BenchmarkTestRun(b *testing.B) {
 
 		RunPipeline(templatePathChan, TemplateCacheHandler)
 
-		RunPipeline(contentPathChan, FullPipelineHandler)
+		RunPipeline(contentPathChan, FullPipelineNullRenderer)
 
-		RunPipeline(pagesPathChan, FullPipelineHandler)
+		RunPipeline(pagesPathChan, FullPipelineNullRenderer)
 	}
-}
-
-func teardown() {
-	os.RemoveAll(testConfig.OutputPath)
 }
