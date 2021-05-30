@@ -48,7 +48,7 @@ func main() {
 		}
 
 		log.Println("pipelining content files")
-		if err := pipeline.RunPipeline(contentPathChan, pipeline.FullPipelineHandler); err != nil {
+		if err := pipeline.RunPipeline(contentPathChan, pipeline.FullPipelineNullRenderer); err != nil {
 			log.Println("exiting")
 			return
 		} else {
@@ -56,7 +56,7 @@ func main() {
 		}
 
 		log.Println("pipelining page files")
-		if err := pipeline.RunPipeline(pagesPathChan, pipeline.FullPipelineHandler); err != nil {
+		if err := pipeline.RunPipeline(pagesPathChan, pipeline.FullPipelineNullRenderer); err != nil {
 			log.Println("exiting")
 			return
 		} else {
