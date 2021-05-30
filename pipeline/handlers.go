@@ -16,6 +16,7 @@ import (
 	"mettlach.codes/frizzy/lexer"
 	"mettlach.codes/frizzy/parser"
 	"mettlach.codes/frizzy/processor"
+	"mettlach.codes/frizzy/renderer"
 )
 
 func TemplateCacheHandler(ctx context.Context, templateFile *os.File) <-chan error {
@@ -31,7 +32,7 @@ func TemplateCacheHandler(ctx context.Context, templateFile *os.File) <-chan err
 		cacheKey = cacheKey[1:]
 	}
 
-	cacherErrs := processor.CacheTemplateResults(nodeChan, templateCache, cacheKey)
+	cacherErrs := renderer.CacheTemplateResults(nodeChan, templateCache, cacheKey)
 	return mergeIntoStandardErrs(ctx, templateFile.Name(), lexErrChan, parserErrChan, cacherErrs)
 }
 
@@ -59,7 +60,17 @@ func getNumPages(inputFile *os.File) (int, bool) {
 	return numPages, ok
 }
 
-func FullPipelineHandler(ctx context.Context, contentFile *os.File) <-chan error {
+func FullPipelineHtmlRenderer(ctx context.Context, contentFile *os.File) <-chan error {
+	renderer := processAndRender
+	return FullPipelineHandler(ctx, contentFile, renderer)
+}
+
+func FullPipelineNullRenderer(ctx context.Context, contentFile *os.File) <-chan error {
+	renderer := renderer.RenderNullResults
+	return FullPipelineHandler(ctx, contentFile, renderer)
+}
+
+func FullPipelineHandler(ctx context.Context, contentFile *os.File, renderer func(context.Context, string, <-chan parser.TreeNode, int, int) (<-chan error, <-chan error)) <-chan error {
 	numPages, paginated := getNumPages(contentFile)
 	// Rewind the file so it can be lexed from the start
 	contentFile.Seek(0, 0)
@@ -78,14 +89,14 @@ func FullPipelineHandler(ctx context.Context, contentFile *os.File) <-chan error
 
 		for i, fannedNodeChan := range nodeChans {
 			curPage := i + 1
-			processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, fannedNodeChan, curPage, numPages)
+			processorErrChan, rendererErrChan := renderer(ctx, inputPath, fannedNodeChan, curPage, numPages)
 			pagedErrChans = append(pagedErrChans, processorErrChan, rendererErrChan)
 		}
 
 		pagedErrChans = append(pagedErrChans, lexErrChan, parserErrChan)
 		return mergeIntoStandardErrs(ctx, contentFile.Name(), pagedErrChans...)
 	} else {
-		processorErrChan, rendererErrChan := processAndRender(ctx, inputPath, nodeChan, 0, 0)
+		processorErrChan, rendererErrChan := renderer(ctx, inputPath, nodeChan, 0, 0)
 		return mergeIntoStandardErrs(
 			ctx,
 			contentFile.Name(),
@@ -133,7 +144,7 @@ func mergeIntoStandardErrs(ctx context.Context, filename string, errChans ...<-c
 func fanOutNodes(nodeChan <-chan parser.TreeNode, numPages int) []chan parser.TreeNode {
 	nodeChanFan := make([]chan parser.TreeNode, numPages)
 	for i := range nodeChanFan {
-		nodeChanFan[i] = make(chan parser.TreeNode, 1)
+		nodeChanFan[i] = make(chan parser.TreeNode, 10)
 	}
 
 	go func() {
@@ -160,7 +171,7 @@ func processAndRender(ctx context.Context, inputPath string, nodeChan <-chan par
 	nodeProcessor.ExportStore.Insert([]string{"_href"}, processor.StringResult(outputPath))
 	processorChan, processorErrChan := nodeProcessor.Process(nodeChan, ctx)
 	resultChan := processor.PostProcessMarkdown(inputPath, processorChan)
-	rendererErrChan := processor.RenderHtmlResults(resultChan, outputPath)
+	rendererErrChan := renderer.RenderHtmlResults(resultChan, outputPath)
 
 	return processorErrChan, rendererErrChan
 }
