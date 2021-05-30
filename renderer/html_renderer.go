@@ -1,12 +1,14 @@
-package processor
+package renderer
 
 import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"mettlach.codes/frizzy/processor"
 )
 
-func RenderHtmlResults(resultChan <-chan Result, outputPath string) <-chan error {
+func RenderHtmlResults(resultChan <-chan processor.Result, outputPath string) <-chan error {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(errChan)
@@ -24,7 +26,7 @@ func RenderHtmlResults(resultChan <-chan Result, outputPath string) <-chan error
 	return errChan
 }
 
-func renderHTMLResult(result Result, outputPath string) error {
+func renderHTMLResult(result processor.Result, outputPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil {
 		return err
 	}

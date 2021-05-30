@@ -1,4 +1,4 @@
-package processor
+package renderer
 
 import "mettlach.codes/frizzy/parser"
 
