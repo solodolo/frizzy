@@ -1,8 +1,10 @@
+#!/usr/bin/env ruby
+
 require 'faker'
 require 'fileutils'
 
 def print_usage()
-  puts "usage: ruby generate_test_files.rb path/to/output"
+  puts "usage: ./generate_test_files.rb path/to/output"
 end
 
 def generate_files(path)
@@ -64,6 +66,7 @@ def write_page_files(path)
   FileUtils.mkdir_p(pages_path) unless File.exist? pages_path
 
   write_content_pagination_page pages_path
+  write_long_page pages_path
 end
 
 def write_content_pagination_page(path)
@@ -80,6 +83,25 @@ def write_content_pagination_page(path)
     f.write("<p>After</p>\n")
     f.write("<a href=\"{{: nextPage._pageHref }}\">{{: nextPage._pageNum }}</a>\n")
     f.write("{{end}}\n")
+  end
+end
+
+def write_long_page(path)
+  filepath = File.join(path, 'long_page.html')
+  File.open(filepath, 'w') do |f|
+    f.write("<h1>This is a long page</h1>\n")
+    paragraph = Faker::Lorem.sentences(number: 30).join("\n")
+    (0...10000).each do |i|
+      f.write("<p>#{paragraph}</p>\n\n")
+
+      if i % 10 == 0
+        f.write("{{: 1+5 }}\n")
+      end
+
+      if i % 50 == 0
+        f.write("{{for foo in \"bar\" }}\n<p>{{: foo.title }}</p>\n{{end}}")
+      end
+    end
   end
 end
 
