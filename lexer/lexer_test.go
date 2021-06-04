@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"strings"
 	"testing"
 )
@@ -318,10 +320,10 @@ func TestRawStringReturnsCorrectLexResultFromParam(t *testing.T) {
 		b
 		c`, "this is the remaining text"},
 		{`
-		
+
 		`, "more remaining"},
 		{`
-		
+
 		`, ""},
 	}
 
@@ -337,5 +339,38 @@ func TestRawStringReturnsCorrectLexResultFromParam(t *testing.T) {
 		} else if remaining.line != test.expectedRemaining {
 			t.Errorf("failed test %d: expected remaining text %q, got %q", i, test.expectedRemaining, remaining.line)
 		}
+	}
+}
+
+func BenchmarkLexer(b *testing.B) {
+	f, err := os.Open("../test_files/pages/long_page.html")
+
+	if err != nil {
+		log.Println("could not open lexer test file")
+		return
+	}
+
+	defer f.Close()
+
+	lexer := Lexer{}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		f.Seek(0, 0)
+		b.StartTimer()
+
+		tokChan, lexErrChan := lexer.Lex(f, context.Background())
+
+		go func() {
+			for range tokChan {
+			}
+		}()
+		go func() {
+			for range tokChan {
+			}
+		}()
+
+		<-lexErrChan
 	}
 }
