@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 )
 
 var (
@@ -29,7 +30,6 @@ var (
 	symbolExp            = regexp.MustCompile(`^[(),\.]`)
 	noWhitespaceBlockExp = regexp.MustCompile(`^-}`)
 	blockExp             = regexp.MustCompile(`^({{:|{{|}})`)
-	openBlockExp         = regexp.MustCompile(`{{:|{{`)
 	openRawStringExp     = regexp.MustCompile("^`")
 	closeRawStringExp    = regexp.MustCompile("`")
 	whitespaceExp        = regexp.MustCompile(`^\s+`)
@@ -148,11 +148,6 @@ func (receiver *Lexer) processLine(line InputLine) []Token {
 		}
 	}
 
-	// // send final EOL token
-	// EOLTok := EOLToken{}
-	// EOLTok.LineNum = line.lineNum
-
-	// tokens = append(tokens, EOLTok)
 	return tokens
 }
 
@@ -164,11 +159,11 @@ func (receiver *Lexer) processPassthroughTokens(inputLine InputLine) (Token, Inp
 		passthroughText = whitespaceExp.ReplaceAllString(passthroughText, "")
 	}
 
-	if loc := openBlockExp.FindStringIndex(passthroughText); loc != nil {
+	if loc := strings.Index(passthroughText, "{{"); loc != -1 {
 		receiver.state = inBlock
 
-		remainder = passthroughText[loc[0]:]
-		passthroughText = passthroughText[:loc[0]]
+		remainder = passthroughText[loc:]
+		passthroughText = passthroughText[:loc]
 	} else {
 		receiver.state = passthrough
 	}
