@@ -3,7 +3,6 @@ package lexer
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -60,14 +59,19 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 	inputBuffer := bufio.NewScanner(inputReader)
 	inputBuffer.Split(splitLinesKeepNL)
 
-	lineChan, lineErrChan := readLines(inputBuffer, ctx)
-
 	tokChan := make(chan []Token)
+	errChan := make(chan error, 1)
+
 	go func() {
 		defer close(tokChan)
+		defer close(errChan)
 
 		lineNum := 0
-		for line := range lineChan {
+		i := 1
+		for inputBuffer.Scan() {
+			line := InputLine{line: inputBuffer.Text(), lineNum: i}
+			i++
+
 			select {
 			case tokChan <- receiver.processLine(line):
 				lineNum++
@@ -76,13 +80,18 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 			}
 		}
 
+		if err := inputBuffer.Err(); err != nil {
+			errChan <- err
+			return
+		}
+
 		// send final EOL token
 		EOLTok := EOLToken{}
 		EOLTok.LineNum = lineNum
 		tokChan <- []Token{EOLTok}
 	}()
 
-	return tokChan, lineErrChan
+	return tokChan, errChan
 }
 
 func splitLinesKeepNL(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -92,33 +101,6 @@ func splitLinesKeepNL(data []byte, atEOF bool) (advance int, token []byte, err e
 		token = append(token, 10)
 	}
 	return
-}
-
-func readLines(inputBuffer *bufio.Scanner, ctx context.Context) (<-chan InputLine, <-chan error) {
-	lineChan := make(chan InputLine)
-	errChan := make(chan error, 1)
-
-	go func() {
-		defer close(lineChan)
-		defer close(errChan)
-
-		i := 1
-		for inputBuffer.Scan() {
-			line := inputBuffer.Text()
-			select {
-			case lineChan <- InputLine{line: line, lineNum: i}:
-			case <-ctx.Done():
-				return
-			}
-			i++
-		}
-
-		if inputBuffer.Err() != nil {
-			errChan <- fmt.Errorf("lexer read error line %d: %s", i, inputBuffer.Err())
-		}
-	}()
-
-	return lineChan, errChan
 }
 
 func (receiver *Lexer) processLine(line InputLine) []Token {
