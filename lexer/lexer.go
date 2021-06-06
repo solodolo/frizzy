@@ -59,7 +59,7 @@ func (receiver *Lexer) Lex(inputReader io.Reader, ctx context.Context) (<-chan [
 	inputBuffer := bufio.NewScanner(inputReader)
 	inputBuffer.Split(splitLinesKeepNL)
 
-	tokChan := make(chan []Token)
+	tokChan := make(chan []Token, 1000)
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -164,13 +164,11 @@ func (receiver *Lexer) processTokensInBlock(inputLine InputLine) ([]Token, Input
 	toks := []Token{}
 	// Ignore whitespace
 	remainingLine := inputLine
-	// remainingLine.line = whitespaceExp.ReplaceAllString(remainingLine.line, "")
 
 	for len(remainingLine.line) > 0 && receiver.state == inBlock {
 		remainingLine.line = whitespaceExp.ReplaceAllString(remainingLine.line, "")
 		if openRawStringExp.MatchString(remainingLine.line) {
 			receiver.state = inStr
-			// tok, unprocessed = receiver.getRawStringToken(curLine)
 		} else {
 			tok, unprocessed := receiver.getNextBlockToken(remainingLine)
 
