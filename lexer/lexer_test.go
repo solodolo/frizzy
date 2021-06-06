@@ -366,10 +366,6 @@ func BenchmarkLexer(b *testing.B) {
 			for range tokChan {
 			}
 		}()
-		go func() {
-			for range tokChan {
-			}
-		}()
 
 		<-lexErrChan
 	}
