@@ -101,7 +101,7 @@ func TestLexHandlesReadFailure(t *testing.T) {
 	lexer := Lexer{}
 
 	tokChan, errChan := lexer.Lex(pipeReader, context.Background())
-	expected := "lexer read error line 1: io: read/write on closed pipe"
+	expected := "io: read/write on closed pipe"
 
 	<-tokChan
 
@@ -206,24 +206,24 @@ func TestLexReturnsCorrectTokenTypes(t *testing.T) {
 				"PassthroughToken", "EOLToken",
 			},
 		},
-		// {
-		// 	"{{if (false) }}blah{{else_if (true)}}blah{{else}}blah{{end}}", []string{
-		// 		"IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
-		// 		"ElseIfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
-		// 		"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
-		// 	},
-		// },
-		// {
-		// 	"{{else}}<h1>foo</h1>{{end}}", []string{
-		// 		"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
-		// 	},
-		// },
-		// {
-		// 	"{{for foo in bar}}<h1>test</h1>{{end}}", []string{
-		// 		"ForToken", "IdentToken", "InToken", "IdentToken", "BlockToken",
-		// 		"PassthroughToken", "EndToken", "EOLToken",
-		// 	},
-		// },
+		{
+			"{{if (false) }}blah{{else_if (true)}}blah{{else}}blah{{end}}", []string{
+				"IfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
+				"ElseIfToken", "SymbolToken", "BoolToken", "SymbolToken", "BlockToken", "PassthroughToken",
+				"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
+			},
+		},
+		{
+			"{{else}}<h1>foo</h1>{{end}}", []string{
+				"ElseToken", "PassthroughToken", "EndToken", "EOLToken",
+			},
+		},
+		{
+			"{{for foo in bar}}<h1>test</h1>{{end}}", []string{
+				"ForToken", "IdentToken", "InToken", "IdentToken", "BlockToken",
+				"PassthroughToken", "EndToken", "EOLToken",
+			},
+		},
 	}
 
 	for _, test := range tests {
