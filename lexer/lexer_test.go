@@ -360,13 +360,9 @@ func BenchmarkLexer(b *testing.B) {
 		f.Seek(0, 0)
 		b.StartTimer()
 
-		tokChan, lexErrChan := lexer.Lex(f, context.Background())
+		tokChan, _ := lexer.Lex(f, context.Background())
 
-		go func() {
-			for range tokChan {
-			}
-		}()
-
-		<-lexErrChan
+		for range tokChan {
+		}
 	}
 }
