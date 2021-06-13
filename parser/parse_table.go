@@ -53,7 +53,7 @@ func init() {
 		"statement -> expression",
 		"statement -> func_call",
 
-		"var_name -> ID . var_name",
+		"var_name -> var_name . ID",
 		"var_name -> ID",
 
 		"func_call -> ID ( args )",

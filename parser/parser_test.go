@@ -3,6 +3,8 @@ package parser
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -707,7 +709,39 @@ func TestBlockParsesNoErrors(t *testing.T) {
 				lexer.StrToken{Str: "foo"},
 				lexer.SymbolToken{Symbol: ","},
 				lexer.NumToken{Num: "5"},
+				lexer.SymbolToken{Symbol: ","},
+				lexer.NumToken{Num: "11"},
+				lexer.SymbolToken{Symbol: ","},
+				lexer.NumToken{Num: "90"},
 				lexer.SymbolToken{Symbol: ")"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{:"},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.SymbolToken{Symbol: "."},
+				lexer.IdentToken{Identifier: "bar"},
+				lexer.BlockToken{Block: "}}"},
+				lexer.EOLToken{},
+			}},
+			nodes: []TreeNode{
+				&NonTerminalParseNode{},
+			},
+		},
+		{
+			tokens: [][]lexer.Token{{
+				lexer.BlockToken{Block: "{{:"},
+				lexer.IdentToken{Identifier: "foo"},
+				lexer.SymbolToken{Symbol: "."},
+				lexer.IdentToken{Identifier: "bar"},
+				lexer.SymbolToken{Symbol: "."},
+				lexer.IdentToken{Identifier: "baz"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.EOLToken{},
 			}},
@@ -1087,4 +1121,50 @@ func nodeSlicesEqual(expected, got []TreeNode) (bool, string) {
 	}
 
 	return true, ""
+}
+
+func BenchmarkParser(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		tokChan := generateBufferedTokChan()
+		b.StartTimer()
+		nodeChan, errChan := Parse(tokChan, context.Background())
+
+		go func() {
+			for range nodeChan {
+
+			}
+		}()
+
+		err := <-errChan
+
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+}
+
+func generateBufferedTokChan() <-chan []lexer.Token {
+	f, err := os.Open("../test_files/pages/long_page.html")
+
+	if err != nil {
+		log.Println("could not open parser benchmark file")
+		return nil
+	}
+
+	defer f.Close()
+
+	l := lexer.Lexer{}
+	tokChan, _ := l.Lex(f, context.Background())
+
+	bufferedChan := make(chan []lexer.Token, 20000)
+	go func() {
+		defer close(bufferedChan)
+		for tok := range tokChan {
+			bufferedChan <- tok
+		}
+	}()
+
+	return bufferedChan
 }
