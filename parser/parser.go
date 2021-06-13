@@ -3,6 +3,7 @@ package parser
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"mettlach.codes/frizzy/lexer"
@@ -162,10 +163,18 @@ func handleReduceAction(action string, token lexer.Token, stateStack *[]int, nod
 
 	node := getNonTerminalNodeForReduction(left)
 
+	// Collapse single non-terminal children
 	if numToPop != 1 || isTerminal {
 		// Stack symbols that will be popped become children of new node
 		children := make([]TreeNode, numToPop)
 		copy(children, (*nodeStack)[len(*nodeStack)-numToPop:])
+
+		// If we have nested types e.g. nested ArgLists, then flatten the tree
+		if len(children) > 0 && reflect.TypeOf(children[0]) == reflect.TypeOf(node) {
+			grandChildren := children[0].GetChildren()
+			// Drop the nested child and append remaining children to dropped child's children
+			children = append(grandChildren, children[1:]...)
+		}
 
 		// Create non-terminal
 		node.SetChildren(children)
