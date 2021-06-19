@@ -26,7 +26,7 @@ func (receiver *FuncCallParseNode) GetFuncName() string {
 
 // GetArgs returns a slice of nodes representing the arguments
 // to this function
-func (receiver *FuncCallParseNode) GetArgs() []TreeNode {
+func (receiver *FuncCallParseNode) GetArguments() []TreeNode {
 	if argsList, ok := receiver.children[2].(*ArgsListParseNode); ok {
 		return argsList.GetArguments()
 	}

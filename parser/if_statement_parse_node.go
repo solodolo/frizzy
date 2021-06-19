@@ -10,10 +10,15 @@ import "fmt"
 // 	|-- parser.IdentParseNode: if
 // 	|-- parser.NonTerminalParseNode: expression
 // 	|
-// 	|-- parser.BlockParseNode
+// 	|-- parser.BlockParseNode: }}
 // 	|-- parser.ContentParseNode
 // 	|
 // 	|-- parser.ElseIfListParseNode
+//  |--|
+//  |  |-- parser.IdentParseNode: else_if
+//  |  |-- parser.NonTerminalParseNode: expression
+//  |  |-- parser.BlockParseNode: }}
+//  |  |-- parser.ContentParseNode
 // 	|
 // 	|-- parser.IdentParseNode: end
 type IfStatementParseNode struct {
@@ -47,21 +52,18 @@ func (receiver *IfStatementParseNode) getElseIfList() (*ElseIfListParseNode, boo
 // of this node's else_if children
 // Return value may be empty
 func (receiver *IfStatementParseNode) GetElseIfConditionals() []TreeNode {
-	conditionals := []TreeNode{}
-
 	if elseIfList, ok := receiver.getElseIfList(); ok {
-		for _, conditional := range elseIfList.GetConditionals() {
-			conditionals = append(conditionals, conditional)
-		}
+		return elseIfList.GetConditionals()
 	}
-	return conditionals
+	return []TreeNode{}
 }
 
 // GetElseIfBody returns the body of the index'th else_if or false if not found
 func (receiver *IfStatementParseNode) GetElseIfBody(index int) (TreeNode, bool) {
 	if elseIfList, ok := receiver.getElseIfList(); ok {
-		if elseIfAt, ok := elseIfList.GetElseIfAt(index); ok {
-			return elseIfAt.GetBody(), true
+		bodies := elseIfList.GetBodies()
+		if len(bodies) > index {
+			return bodies[index], true
 		}
 	}
 

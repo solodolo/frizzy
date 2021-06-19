@@ -1,6 +1,9 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // VarNameParseNode represents a variable name
 // Can be dot separated like "post.title" or a single
@@ -22,61 +25,13 @@ func (node *VarNameParseNode) IsTerminal() bool {
 // by this VarNameParseNode tree
 // e.g. "foo" will return ["foo"] and "foo.bar" will return ["foo", "bar"]
 func (receiver *VarNameParseNode) GetVarNameParts() []string {
-	first := receiver.children[0].(*IdentParseNode).Value
+	numParts := float64(len(receiver.children)) / float64(2)
+	numNames := int(math.Ceil(numParts))
+	nameParts := make([]string, 0, numNames)
 
-	if len(receiver.children) < 2 {
-		return []string{first}
+	for i := 0; i < len(receiver.children); i += 2 {
+		nameParts = append(nameParts, receiver.children[i].(*IdentParseNode).Value)
 	}
 
-	nestedVarName, ok := receiver.children[len(receiver.children)-1].(*VarNameParseNode)
-	if ok {
-		return append([]string{first}, nestedVarName.GetVarNameParts()...)
-	}
-
-	second := receiver.children[2].(*IdentParseNode).Value
-	return []string{first, second}
-	// flattened := receiver.GetFlattenedChildren()
-	// nameParts := make([]string, 0, len(flattened))
-
-	// for _, child := range flattened {
-	// 	nameParts = append(nameParts, child.getIdentifierName())
-	// }
-	// return nameParts
-}
-
-// GetFlattenedChildren returns an array of nested VarNameParseNodes starting
-// with the called node
-func (receiver *VarNameParseNode) GetFlattenedChildren() []*VarNameParseNode {
-	if len(receiver.flattenedChildren) == 0 {
-		receiver.cacheFlattenedChildren()
-	}
-
-	return receiver.flattenedChildren
-}
-
-func (receiver *VarNameParseNode) cacheFlattenedChildren() {
-	receiver.flattenedChildren = []*VarNameParseNode{receiver}
-	current := receiver
-
-	for current.hasNestedChildren() {
-		next := current.children[len(current.children)-1].(*VarNameParseNode)
-		receiver.flattenedChildren = append(receiver.flattenedChildren, next)
-		current = next
-	}
-}
-
-func (receiver *VarNameParseNode) hasNestedChildren() bool {
-	if len(receiver.children) == 0 {
-		return false
-	}
-
-	_, ok := receiver.children[len(receiver.children)-1].(*VarNameParseNode)
-	return ok
-}
-
-func (receiver *VarNameParseNode) getIdentifierName() string {
-	if len(receiver.children) > 0 {
-		return receiver.children[0].(*IdentParseNode).Value
-	}
-	return ""
+	return nameParts
 }

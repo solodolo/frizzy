@@ -1,64 +1,59 @@
 package parser
 
 import (
+	"strings"
 	"testing"
+
+	"mettlach.codes/frizzy/lexer"
 )
 
-func TestUnestedNodeReturnsCorrectNumberAndValueVarNameParts(t *testing.T) {
-	ident := &IdentParseNode{Value: "foo"}
-	node := VarNameParseNode{
-		ParseNode: ParseNode{
-			children: []TreeNode{ident},
-		},
+func TestNestedVarNameReturnsCorrectNameParts(t *testing.T) {
+	var tests = []struct {
+		toks      []lexer.Token
+		nameParts []string
+	}{
+		{[]lexer.Token{
+			lexer.BlockToken{Block: "{{"},
+			lexer.IdentToken{Identifier: "foo"},
+			lexer.BlockToken{Block: "}}"},
+			lexer.EOLToken{},
+		}, []string{"foo"}},
+		{[]lexer.Token{
+			lexer.BlockToken{Block: "{{"},
+			lexer.IdentToken{Identifier: "foo"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "bar"},
+			lexer.BlockToken{Block: "}}"},
+			lexer.EOLToken{},
+		}, []string{"foo", "bar"}},
+		{[]lexer.Token{
+			lexer.BlockToken{Block: "{{"},
+			lexer.IdentToken{Identifier: "milky_way"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "sol_system"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "earth"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "africa"},
+			lexer.SymbolToken{Symbol: "."},
+			lexer.IdentToken{Identifier: "malawi"},
+			lexer.BlockToken{Block: "}}"},
+			lexer.EOLToken{},
+		}, []string{"milky_way", "sol_system", "earth", "africa", "malawi"}},
 	}
 
-	nameParts := node.GetVarNameParts()
+	for _, test := range tests {
+		t.Run(strings.Join(test.nameParts, "."), func(t *testing.T) {
+			stateStack := []int{}
+			nodeStack := []TreeNode{}
 
-	if len(nameParts) != 1 {
-		t.Errorf("expected %d name part, got %d", 1, len(nameParts))
-	} else if nameParts[0] != ident.Value {
-		t.Errorf("expected name part to equal %q, got %q", ident.Value, nameParts[0])
-	}
-}
+			_, head, _ := parseTokens(test.toks, &stateStack, &nodeStack)
+			varName := extractToken(head, []int{1}).(*VarNameParseNode)
+			got := varName.GetVarNameParts()
 
-func TestNestedNodeReturnsCorrectNumberAndValueVarNameParts(t *testing.T) {
-	ident1 := &IdentParseNode{Value: "foo"}
-	ident2 := &IdentParseNode{Value: "title"}
-	ident3 := &IdentParseNode{Value: "date"}
-
-	node := VarNameParseNode{
-		ParseNode: ParseNode{
-			children: []TreeNode{
-				ident1,
-				&SymbolParseNode{Value: "."},
-				&VarNameParseNode{
-					ParseNode: ParseNode{
-						children: []TreeNode{
-							ident2,
-							&SymbolParseNode{Value: "."},
-							&VarNameParseNode{
-								ParseNode: ParseNode{
-									children: []TreeNode{
-										ident3,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	nameParts := node.GetVarNameParts()
-
-	if len(nameParts) != 3 {
-		t.Errorf("expected %d name parts, got %d", 3, len(nameParts))
-	} else if nameParts[0] != ident1.Value {
-		t.Errorf("expected first name part to equal %q, got %q", ident1.Value, nameParts[0])
-	} else if nameParts[1] != ident2.Value {
-		t.Errorf("expected second name part to equal %q, got %q", ident2.Value, nameParts[1])
-	} else if nameParts[2] != ident3.Value {
-		t.Errorf("expected third name part to equal %q, got %q", ident3.Value, nameParts[2])
+			if strings.Join(got, "") != strings.Join(test.nameParts, "") {
+				t.Errorf("expected %q, got %q", got, test.nameParts)
+			}
+		})
 	}
 }

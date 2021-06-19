@@ -13,7 +13,6 @@ import "fmt"
 //			|-- ContentParseNode
 type ElseIfListParseNode struct {
 	ParseNode
-	flattenedBlockChildren []*ElseIfListParseNode
 }
 
 func (receiver *ElseIfListParseNode) String() string {
@@ -27,74 +26,25 @@ func (node *ElseIfListParseNode) IsTerminal() bool {
 // GetConditionals returns the true/false statements inside of this
 // and each nested else_if block
 func (receiver *ElseIfListParseNode) GetConditionals() []TreeNode {
-	blocks := receiver.GetFlattenedBlockChildren()
-	conditionals := make([]TreeNode, len(blocks))
+	numConditionals := len(receiver.children) / 4
+	conditionals := make([]TreeNode, 0, numConditionals)
 
-	for i, block := range blocks {
-		conditionals[i] = block.GetConditional()
+	for i := 0; i < numConditionals; i++ {
+		offset := i*4 + 1
+		conditionals = append(conditionals, receiver.children[offset])
 	}
 
 	return conditionals
 }
 
-// GetFlattenedBlockChildren returns the ElseIfListParseNode children of
-// this node in a flattened array
-func (receiver *ElseIfListParseNode) GetFlattenedBlockChildren() []*ElseIfListParseNode {
-	if receiver.flattenedBlockChildren == nil {
-		receiver.cacheFlattenedBlockChildren()
+func (receiver *ElseIfListParseNode) GetBodies() []TreeNode {
+	numBodies := len(receiver.children) / 4
+	bodies := make([]TreeNode, 0, numBodies)
+
+	for i := 0; i < numBodies; i++ {
+		offset := i*4 + 3
+		bodies = append(bodies, receiver.children[offset])
 	}
 
-	return receiver.flattenedBlockChildren
-}
-
-// cacheFlattenedBlockChildren stores this receiver and any ElseIfListParseNode
-// children in a flat array
-func (receiver *ElseIfListParseNode) cacheFlattenedBlockChildren() {
-	receiver.flattenedBlockChildren = []*ElseIfListParseNode{receiver}
-
-	current := receiver
-	for current.hasBlockChildren() {
-		next := current.children[0].(*ElseIfListParseNode)
-		// bottom child is first else_if so prepend
-		receiver.flattenedBlockChildren = append([]*ElseIfListParseNode{next}, receiver.flattenedBlockChildren...)
-		current = next
-	}
-}
-
-func (receiver *ElseIfListParseNode) hasBlockChildren() bool {
-	if len(receiver.children) == 0 {
-		return false
-	}
-	_, ok := receiver.children[0].(*ElseIfListParseNode)
-	return ok
-}
-
-// GetConditional returns the true/false statement for this else_if
-func (receiver *ElseIfListParseNode) GetConditional() TreeNode {
-	// if there are multiple else_ifs then the first child will be
-	// a type of ElseIfListParseNode
-	// Otherwise it will be ["else_if", expression]
-	if receiver.hasBlockChildren() {
-		return receiver.children[2]
-	}
-
-	return receiver.children[1]
-}
-
-// GetBody returns the body of this else_if
-func (receiver *ElseIfListParseNode) GetBody() TreeNode {
-	if receiver.hasBlockChildren() {
-		return receiver.children[4]
-	}
-
-	return receiver.children[3]
-}
-
-func (receiver *ElseIfListParseNode) GetElseIfAt(index int) (*ElseIfListParseNode, bool) {
-	blockChildren := receiver.GetFlattenedBlockChildren()
-	if index >= len(blockChildren) {
-		return nil, false
-	}
-
-	return blockChildren[index], true
+	return bodies
 }

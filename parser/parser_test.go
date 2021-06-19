@@ -179,15 +179,11 @@ func TestIfElseIfParsesNoErrors(t *testing.T) {
 		{
 			tokens: [][]lexer.Token{{
 				lexer.IfToken{},
-				lexer.SymbolToken{Symbol: "("},
 				lexer.BoolToken{Value: "true"},
-				lexer.SymbolToken{Symbol: ")"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.PassthroughToken{Value: "<p>foo</p>"},
 				lexer.ElseIfToken{},
-				lexer.SymbolToken{Symbol: "("},
 				lexer.BoolToken{Value: "true"},
-				lexer.SymbolToken{Symbol: ")"},
 				lexer.BlockToken{Block: "}}"},
 				lexer.PassthroughToken{Value: "<p>bar</p>"},
 				lexer.EndToken{},

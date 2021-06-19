@@ -1,0 +1,7 @@
+goos: linux
+goarch: amd64
+pkg: mettlach.codes/frizzy/parser
+cpu: AMD Ryzen 7 1800X Eight-Core Processor         
+BenchmarkParser-2   	   10000	    119560 ns/op	   20777 B/op	     583 allocs/op
+PASS
+ok  	mettlach.codes/frizzy/parser	3.640s
