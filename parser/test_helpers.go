@@ -1,22 +1,26 @@
 package parser
 
 func extractToken(head TreeNode, decendentIndices []int) TreeNode {
-	children := head.GetChildren()
-
-	if len(children) > 0 {
-		blockNode := children[0].(*BlockParseNode)
-
-		var nextNode TreeNode = blockNode
-		for _, decendentIndex := range decendentIndices {
-			grandChildren := nextNode.GetChildren()
-
-			if len(grandChildren) > decendentIndex {
-				nextNode = grandChildren[decendentIndex]
-			}
+	current := head
+	for _, decendentIndex := range decendentIndices {
+		children := current.GetChildren()
+		if len(children) > decendentIndex {
+			current = children[decendentIndex]
 		}
+	}
+	return current
+}
 
-		return nextNode
+func nodeSlicesEqual(arr1, arr2 []TreeNode) bool {
+	if len(arr1) != len(arr2) {
+		return false
 	}
 
-	return nil
+	for i := range arr1 {
+		if arr1[i].String() != arr2[i].String() {
+			return false
+		}
+	}
+
+	return true
 }

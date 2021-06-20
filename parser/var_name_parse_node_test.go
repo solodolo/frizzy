@@ -48,7 +48,7 @@ func TestNestedVarNameReturnsCorrectNameParts(t *testing.T) {
 			nodeStack := []TreeNode{}
 
 			_, head, _ := parseTokens(test.toks, &stateStack, &nodeStack)
-			varName := extractToken(head, []int{1}).(*VarNameParseNode)
+			varName := extractToken(head, []int{0, 1}).(*VarNameParseNode)
 			got := varName.GetVarNameParts()
 
 			if strings.Join(got, "") != strings.Join(test.nameParts, "") {

@@ -57,7 +57,7 @@ func TestArgsReturnsCorrectNameParts(t *testing.T) {
 			nodeStack := []TreeNode{}
 
 			_, head, _ := parseTokens(test.toks, &stateStack, &nodeStack)
-			funcCall := extractToken(head, []int{1}).(*FuncCallParseNode)
+			funcCall := extractToken(head, []int{0, 1}).(*FuncCallParseNode)
 			got := funcCall.GetArguments()
 			gotStrs := make([]string, 0, len(got))
 

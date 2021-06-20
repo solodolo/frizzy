@@ -2,10 +2,8 @@ package parser
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -31,8 +29,8 @@ func testParsesNoErrors(test struct {
 		t.Errorf("Expected no errors. Got %q.", err.Error())
 	}
 
-	if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
-		t.Error(msg)
+	if !nodeSlicesEqual(test.nodes, nodes) {
+		t.Errorf("expected %v, got %v", test.nodes, nodes)
 	}
 }
 
@@ -814,8 +812,8 @@ func TestBlockParsesNoErrors(t *testing.T) {
 			t.Errorf("Expected no errors. Got %q.", err.Error())
 		}
 
-		if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
-			t.Error(msg)
+		if !nodeSlicesEqual(test.nodes, nodes) {
+			t.Errorf("expected %v, got %v", test.nodes, nodes)
 		}
 	}
 }
@@ -936,8 +934,8 @@ func TestBlocksAndPassthroughsParsesNoErrors(t *testing.T) {
 			t.Errorf("Expected no errors. Got %q.", err.Error())
 		}
 
-		if equal, msg := nodeSlicesEqual(test.nodes, nodes); !equal {
-			t.Error(msg)
+		if !nodeSlicesEqual(test.nodes, nodes) {
+			t.Errorf("expected %v, got %v", test.nodes, nodes)
 		}
 	}
 }
@@ -1079,45 +1077,45 @@ func getTokChan(tokens [][]lexer.Token) chan []lexer.Token {
 	return tokChan
 }
 
-func nodeSlicesEqual(expected, got []TreeNode) (bool, string) {
-	if len(expected) != len(got) {
-		return false, fmt.Sprintf("Expected %d nodes. Got %d.", len(expected), len(got))
-	}
+// func nodeSlicesEqual(expected, got []TreeNode) (bool, string) {
+// 	if len(expected) != len(got) {
+// 		return false, fmt.Sprintf("Expected %d nodes. Got %d.", len(expected), len(got))
+// 	}
 
-	for i := 0; i < len(expected); i++ {
-		expectedNode := expected[i]
-		gotNode := got[i]
+// 	for i := 0; i < len(expected); i++ {
+// 		expectedNode := expected[i]
+// 		gotNode := got[i]
 
-		if reflect.TypeOf(expectedNode) != reflect.TypeOf(gotNode) {
-			return false, fmt.Sprintf("Expected type %q. Got type %q.", reflect.TypeOf(expected[i]), reflect.TypeOf(got[i]))
-		}
+// 		if reflect.TypeOf(expectedNode) != reflect.TypeOf(gotNode) {
+// 			return false, fmt.Sprintf("Expected type %q. Got type %q.", reflect.TypeOf(expected[i]), reflect.TypeOf(got[i]))
+// 		}
 
-		switch node := expectedNode.(type) {
-		case *NonTerminalParseNode:
-			gn := gotNode.(*NonTerminalParseNode)
-			if gn.Value != node.Value {
-				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
-			}
-		case *StringParseNode:
-			gn := gotNode.(*StringParseNode)
-			if gn.Value != node.Value {
-				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
-			}
-		case *NumParseNode:
-			gn := gotNode.(*NumParseNode)
-			if gn.Value != node.Value {
-				return false, fmt.Sprintf("Expected number %d. Got number %d.", node.Value, gn.Value)
-			}
-		case *IdentParseNode:
-			gn := gotNode.(*IdentParseNode)
-			if gn.Value != node.Value {
-				return false, fmt.Sprintf("Expected ident %q. Got ident %q.", node.Value, gn.Value)
-			}
-		}
-	}
+// 		switch node := expectedNode.(type) {
+// 		case *NonTerminalParseNode:
+// 			gn := gotNode.(*NonTerminalParseNode)
+// 			if gn.Value != node.Value {
+// 				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
+// 			}
+// 		case *StringParseNode:
+// 			gn := gotNode.(*StringParseNode)
+// 			if gn.Value != node.Value {
+// 				return false, fmt.Sprintf("Expected value %q. Got value %q.", node.Value, gn.Value)
+// 			}
+// 		case *NumParseNode:
+// 			gn := gotNode.(*NumParseNode)
+// 			if gn.Value != node.Value {
+// 				return false, fmt.Sprintf("Expected number %d. Got number %d.", node.Value, gn.Value)
+// 			}
+// 		case *IdentParseNode:
+// 			gn := gotNode.(*IdentParseNode)
+// 			if gn.Value != node.Value {
+// 				return false, fmt.Sprintf("Expected ident %q. Got ident %q.", node.Value, gn.Value)
+// 			}
+// 		}
+// 	}
 
-	return true, ""
-}
+// 	return true, ""
+// }
 
 func BenchmarkParser(b *testing.B) {
 	for i := 0; i < b.N; i++ {
