@@ -3,7 +3,9 @@ package processor
 import (
 	goContext "context"
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"strconv"
 	"testing"
 
@@ -1299,4 +1301,54 @@ func generateForLoopTokens(condition []lexer.Token, body []lexer.Token) []lexer.
 func getTestPathReader(numPaths int) func(string) []string {
 	paths := make([]string, numPaths)
 	return func(string) []string { return paths }
+}
+
+func BenchmarkProcessor(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		nodeChan := createBufferedNodeChan()
+		p := NewNodeProcessor("../test_files/pages/long_page.html", &Context{}, nil, nil, nil, 0, 0)
+		b.StartTimer()
+		resultChan, errChan := p.Process(nodeChan, goContext.Background())
+
+		go func() {
+			for range resultChan {
+
+			}
+		}()
+
+		err := <-errChan
+
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+}
+
+func createBufferedNodeChan() <-chan parser.TreeNode {
+	f, err := os.Open("../test_files/pages/long_page.html")
+
+	if err != nil {
+		log.Println("could not open processor test file")
+	}
+
+	defer f.Close()
+
+	lexer := lexer.Lexer{}
+	tokChan, _ := lexer.Lex(f, goContext.Background())
+	nodeChan, _ := parser.Parse(tokChan, goContext.Background())
+
+	nodes := []parser.TreeNode{}
+	for node := range nodeChan {
+		nodes = append(nodes, node)
+	}
+
+	bufChan := make(chan parser.TreeNode, len(nodes))
+	defer close(bufChan)
+
+	for _, node := range nodes {
+		bufChan <- node
+	}
+	return bufChan
 }
