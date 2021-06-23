@@ -230,7 +230,7 @@ func (receiver *NodeProcessor) processHeadNode(head parser.TreeNode) (Result, er
 		funcName := typedNode.GetFuncName()
 
 		processedArgs := []Result{}
-		args := typedNode.GetArgs()
+		args := typedNode.GetArguments()
 
 		for _, arg := range args {
 			argResult, err := receiver.processHeadNode(arg)
